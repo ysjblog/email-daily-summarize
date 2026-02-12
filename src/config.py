@@ -31,8 +31,14 @@ class Settings:
         self.whitelist_senders: list[str] = raw.get("whitelist_senders", [])
         self.priority_keywords: list[str] = raw.get("priority_keywords", [])
         self.newsletter_sources: list[str] = raw.get("newsletter_sources", [])
+        self.exclude_important_senders: list[str] = raw.get("exclude_important_senders", [])
+        self.exclude_important_subject_keywords: list[str] = raw.get("exclude_important_subject_keywords", [])
+        self.force_newsletter_senders: list[str] = raw.get("force_newsletter_senders", [])
+        self.force_newsletter_subject_keywords: list[str] = raw.get("force_newsletter_subject_keywords", [])
         self.spam_scan: dict[str, Any] = raw.get("spam_scan", {"enabled": True, "action": "report_only"})
         self.digest: dict[str, Any] = raw.get("digest", {})
+        self.digest_redaction_mode: str = _validate_redaction_mode(self.digest.get("redaction_mode", "strict"))
+        self.digest["redaction_mode"] = self.digest_redaction_mode
         self.accounts: list[AccountSettings] = self._load_accounts(raw)
 
     @property
@@ -145,6 +151,13 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
         else:
             result[key] = deepcopy(value)
     return result
+
+
+def _validate_redaction_mode(value: Any) -> str:
+    mode = str(value).strip().lower()
+    if mode not in {"strict", "balanced"}:
+        raise ConfigError("digest.redaction_mode must be one of: strict, balanced")
+    return mode
 
 
 def _mini_yaml_load(content: str) -> dict[str, Any]:

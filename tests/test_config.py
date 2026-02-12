@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.config import AccountSettings, load_settings
+from src.config import AccountSettings, ConfigError, load_settings
 
 
 class ConfigTests(unittest.TestCase):
@@ -56,6 +56,37 @@ digest:
             default_account: AccountSettings = settings.accounts[0]
             self.assertEqual(default_account.id, "default")
             self.assertEqual(default_account.env_prefix, "DEFAULT")
+
+    def test_digest_redaction_mode_default_strict(self) -> None:
+        content = """
+timezone: Asia/Taipei
+digest:
+  channels:
+    - gmail
+accounts:
+  - id: work
+    env_prefix: WORK
+""".strip()
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "settings.yaml"
+            p.write_text(content, encoding="utf-8")
+            settings = load_settings(p)
+            self.assertEqual(settings.digest_redaction_mode, "strict")
+
+    def test_digest_redaction_mode_invalid(self) -> None:
+        content = """
+timezone: Asia/Taipei
+digest:
+  redaction_mode: unsafe
+accounts:
+  - id: work
+    env_prefix: WORK
+""".strip()
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "settings.yaml"
+            p.write_text(content, encoding="utf-8")
+            with self.assertRaises(ConfigError):
+                load_settings(p)
 
 
 if __name__ == "__main__":

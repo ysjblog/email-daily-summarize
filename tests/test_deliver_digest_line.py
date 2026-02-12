@@ -31,13 +31,17 @@ class DeliverDigestLineTests(unittest.TestCase):
         deliver_digest(
             settings=settings,
             digest="d",
-            line_digest="line",
             run_id="r",
             logger=Mock(),
             sender_client=None,
+            account_reports=[{"account_id": "work", "display_name": "Work", "important": [{"subject": "secret"}]}],
+            failed_accounts=[],
         )
 
-        line_send_mock.assert_called_once_with(user_id="U_ENV", text="line")
+        _, kwargs = line_send_mock.call_args
+        self.assertEqual(kwargs["user_id"], "U_ENV")
+        self.assertIn("[Email Digest Safe Summary]", kwargs["text"])
+        self.assertNotIn("secret", kwargs["text"])
 
     @patch("src.main.LineNotifier.send")
     def test_line_target_fallback_to_yaml(self, line_send_mock: Mock) -> None:
@@ -47,13 +51,17 @@ class DeliverDigestLineTests(unittest.TestCase):
         deliver_digest(
             settings=settings,
             digest="d",
-            line_digest="line",
             run_id="r",
             logger=Mock(),
             sender_client=None,
+            account_reports=[{"account_id": "work", "display_name": "Work", "important": [{"subject": "secret"}]}],
+            failed_accounts=[],
         )
 
-        line_send_mock.assert_called_once_with(user_id="U_YAML", text="line")
+        _, kwargs = line_send_mock.call_args
+        self.assertEqual(kwargs["user_id"], "U_YAML")
+        self.assertIn("[Email Digest Safe Summary]", kwargs["text"])
+        self.assertNotIn("secret", kwargs["text"])
 
 
 if __name__ == "__main__":
