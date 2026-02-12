@@ -5,6 +5,7 @@ from typing import Any, Callable
 
 LINE_MAX_CHARS = 4900
 LINE_SECTION_LIMIT = 3
+IMPORTANT_SNIPPET_MAX_CHARS = 20
 
 
 def build_combined_digest(
@@ -31,7 +32,9 @@ def build_combined_digest(
         lines.append("### 1) Important Emails")
         if important:
             for item in important[:10]:
-                lines.append(f"- {item['subject']} | {item['sender']} ({item['reason']})")
+                sender = item.get("sender", "unknown sender")
+                subject = item.get("subject", "(no subject)")
+                lines.append(f"- {sender} | {subject}")
         else:
             lines.append("- None")
         lines.append("")
@@ -200,10 +203,20 @@ def _render_newsletter_item(item: dict[str, Any]) -> list[str]:
 def _render_important_item(item: dict[str, Any]) -> list[str]:
     sender = item.get("sender", "unknown sender")
     subject = item.get("subject", "(no subject)")
-    snippet = str(item.get("snippet", "")).strip()
+    snippet = _truncate_text(str(item.get("snippet", "")).strip(), IMPORTANT_SNIPPET_MAX_CHARS)
     if snippet:
         return [f"- {sender} | {subject}", f"  摘要: {snippet}"]
     return [f"- {sender} | {subject}", "  摘要: (無)"]
+
+
+def _truncate_text(text: str, max_chars: int) -> str:
+    if max_chars <= 0:
+        return ""
+    if len(text) <= max_chars:
+        return text
+    if max_chars <= 3:
+        return text[:max_chars]
+    return f"{text[: max_chars - 3]}..."
 
 
 def _truncate_line_digest(digest: str, max_chars: int) -> str:

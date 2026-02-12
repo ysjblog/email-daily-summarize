@@ -1,6 +1,6 @@
 import unittest
 
-from src.digest_builder import build_external_safe_digest, build_line_digest
+from src.digest_builder import build_combined_digest, build_external_safe_digest, build_line_digest
 
 
 class DigestBuilderTests(unittest.TestCase):
@@ -32,6 +32,44 @@ class DigestBuilderTests(unittest.TestCase):
         self.assertIn("news@site.com | Newsletter 1", digest)
         self.assertIn("- ...還有 1 筆", digest)
         self.assertNotIn("(rule)", digest)
+
+    def test_build_line_digest_limits_important_snippet_to_20_chars(self) -> None:
+        account_report = {
+            "account_id": "work",
+            "display_name": "Work Mail",
+            "important": [
+                {
+                    "subject": "Important",
+                    "sender": "imp@mail.com",
+                    "snippet": "1234567890123456789012345",
+                }
+            ],
+            "moved": [],
+            "spam_suspects": [],
+            "newsletters": [],
+        }
+
+        digest = build_line_digest("2026-02-12-1305", [account_report], [])
+        snippet_line = next(line for line in digest.splitlines() if line.strip().startswith("摘要: "))
+        rendered = snippet_line.split("摘要: ", 1)[1]
+
+        self.assertEqual(rendered, "12345678901234567...")
+        self.assertLessEqual(len(rendered), 20)
+
+    def test_build_combined_digest_hides_important_reason(self) -> None:
+        account_report = {
+            "account_id": "work",
+            "display_name": "Work Mail",
+            "important": [{"subject": "Top Secret", "sender": "boss@example.com", "reason": "priority keyword"}],
+            "moved": [],
+            "spam_suspects": [],
+            "newsletters": [],
+        }
+
+        digest = build_combined_digest("2026-02-12-1306", [account_report], [])
+
+        self.assertIn("- boss@example.com | Top Secret", digest)
+        self.assertNotIn("priority keyword", digest)
 
     def test_build_line_digest_truncates_to_line_limit(self) -> None:
         long_text = "x" * 1200
