@@ -1,59 +1,73 @@
 # Daily Summarize
 
-Multi-account Gmail automation (09:00 and 21:00 Asia/Taipei):
-- Classify inbox messages and move low-priority emails in moderate mode.
-- Scan Spam for potentially important emails (report-only).
-- Build one combined digest with clear account sections.
-- Send digest to Gmail + Slack + LINE.
+多帳號 Gmail 自動摘要工具（預設時區：Asia/Taipei）。
 
-## 1. Setup
+## 快速開始（貼 token + 一個 command）
+
+1. 建立個人 secrets 檔案（repo 外）
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
+mkdir -p ~/.config/daily-summarize
+cp config/secrets.example.env ~/.config/daily-summarize/secrets.env
+chmod 600 ~/.config/daily-summarize/secrets.env
 ```
 
-Fill all secrets in one `.env` file.
+2. 編輯 `~/.config/daily-summarize/secrets.env`，填入你自己的 token
 
-## 2. Configure
+3. 一鍵檢查並執行 dry-run
 
-Edit:
-- `config/settings.yaml`
+```bash
+bash scripts/quickstart.sh
+```
 
-Add new accounts by appending `accounts[]` entries with a new `env_prefix`.
+`quickstart.sh` 會自動做以下動作：
+- 建立 `.venv` 並安裝依賴
+- 檢查 `~/.config/daily-summarize/secrets.env` 權限是否為 `600`
+- 檢查必要 env key 是否完整
+- 執行 `python -m src.main dry-run`
 
-## 3. Authorize Gmail account (interactive)
+## 正式執行
 
-For each account, run:
+```bash
+python -m src.main run --env-file ~/.config/daily-summarize/secrets.env
+```
+
+## 設定檔
+
+主要設定在 `config/settings.yaml`。
+
+重點：
+- `digest.redaction_mode: strict`（預設）會讓 Slack/LINE 只收到安全摘要，不含主旨與內容。
+- `accounts[]` 可設定多帳號，每個帳號需要對應的 `{PREFIX}_GMAIL_*` secrets。
+
+## Gmail OAuth 登入（互動式）
+
+若你要透過互動流程取得 refresh token：
 
 ```bash
 python -m src.main auth login --account work --email your-work@gmail.com
-python -m src.main auth login --account personal --email your-personal@gmail.com
 ```
 
-This opens a browser and writes `${PREFIX}_GMAIL_REFRESH_TOKEN` into `.env`.
+預設會寫入 `~/.config/daily-summarize/secrets.env`。
 
-## 4. Run
+## 其他指令
 
 ```bash
-python -m src.main dry-run
-python -m src.main run
-python -m src.main run --account work
-python -m src.main backfill --days 7
+python -m src.main dry-run --env-file ~/.config/daily-summarize/secrets.env
+python -m src.main dry-run --hours 24 --env-file ~/.config/daily-summarize/secrets.env
+python -m src.main run --hours 24 --env-file ~/.config/daily-summarize/secrets.env
+python -m src.main backfill --days 7 --env-file ~/.config/daily-summarize/secrets.env
+python -m src.main config-ui
 ```
 
-## 5. Output
+## 輸出
 
-Reports:
-- Combined: `data/reports/<run_id>.json`, `data/reports/<run_id>.md`
-- Per account: `data/reports/<run_id>__<account_id>.json`, `data/reports/<run_id>__<account_id>.md`
+- 報表：`data/reports/*.json`, `data/reports/*.md`
+- 狀態：`data/state/*.json`
+- 日誌：`logs/app.log`
 
-State:
-- `data/state/<account_id>.json`
+## 安全建議
 
-## 6. Required Gmail OAuth scopes
-
-- `https://www.googleapis.com/auth/gmail.modify`
-- `https://www.googleapis.com/auth/gmail.send`
+- 不要把真實 token 放進 repo。
+- `secrets.env` 請固定 `chmod 600`。
+- 詳細安全流程請看 `SECURITY.md`。

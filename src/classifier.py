@@ -38,6 +38,7 @@ def classify_messages(
                     "message_id": msg.id,
                     "subject": msg.subject,
                     "sender": msg.sender,
+                    "snippet": msg.snippet,
                     "reason": decision["reason"],
                 }
             )
@@ -58,12 +59,28 @@ def _classify_single(msg: EmailMessage, settings: Settings, high_interaction_sen
     sender_lower = msg.sender.lower()
     subject_lower = msg.subject.lower()
     snippet_lower = msg.snippet.lower()
+    subject_snippet = f"{subject_lower} {snippet_lower}"
+
+    if _match_sender(sender_lower, settings.exclude_important_senders):
+        return {"action": "move", "reason": "manual exclude-important sender rule"}
+
+    if _contains_keywords(subject_snippet, settings.exclude_important_subject_keywords):
+        return {"action": "move", "reason": "manual exclude-important subject rule"}
+
+    if _match_sender(sender_lower, settings.force_newsletter_senders):
+        return {"action": "move", "reason": "manual newsletter sender rule"}
+
+    if _contains_keywords(subject_snippet, settings.force_newsletter_subject_keywords):
+        return {"action": "move", "reason": "manual newsletter subject rule"}
 
     if _match_sender(sender_lower, settings.whitelist_senders):
         return {"action": "keep", "reason": "whitelist sender"}
 
-    if _contains_keywords(subject_lower + " " + snippet_lower, settings.priority_keywords):
+    if _contains_keywords(subject_snippet, settings.priority_keywords):
         return {"action": "keep", "reason": "priority keyword matched"}
+
+    if _match_sender(sender_lower, settings.newsletter_sources):
+        return {"action": "move", "reason": "newsletter source rule"}
 
     if _sender_base(sender_lower) in {s.lower() for s in high_interaction_senders}:
         return {"action": "keep", "reason": "high interaction sender"}
@@ -73,7 +90,7 @@ def _classify_single(msg: EmailMessage, settings: Settings, high_interaction_sen
         return {"action": "move", "reason": "gmail category promotions/social"}
 
     if "no-reply" in sender_lower or "noreply" in sender_lower:
-        if not _contains_keywords(subject_lower + " " + snippet_lower, settings.priority_keywords):
+        if not _contains_keywords(subject_snippet, settings.priority_keywords):
             return {"action": "move", "reason": "no-reply notification"}
 
     text = f"{subject_lower} {snippet_lower}"
@@ -90,11 +107,23 @@ def _contains_keywords(text: str, keywords: list[str]) -> bool:
 
 
 def _match_sender(sender: str, whitelist: list[str]) -> bool:
+    sender_email = _sender_base(sender).lower().strip()
+    sender_domain = sender_email.split("@", 1)[1] if "@" in sender_email else ""
+
     for item in whitelist:
         rule = item.lower().strip()
         if not rule:
             continue
-        if rule.startswith("@") and rule in sender:
+        if rule.startswith("@"):
+            wanted_domain = rule[1:]
+            if not wanted_domain:
+                continue
+            if sender_domain == wanted_domain or sender_domain.endswith(f".{wanted_domain}"):
+                return True
+            if rule in sender:
+                return True
+            continue
+        if rule in sender_email:
             return True
         if rule in sender:
             return True

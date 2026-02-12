@@ -10,7 +10,11 @@ def _settings() -> Settings:
         {
             "whitelist_senders": ["@important.com"],
             "priority_keywords": ["invoice", "驗證碼"],
-            "newsletter_sources": [],
+            "newsletter_sources": ["@news.example.com"],
+            "exclude_important_senders": ["@brevo.com"],
+            "exclude_important_subject_keywords": ["campaign has been sent"],
+            "force_newsletter_senders": ["@vocus.cc"],
+            "force_newsletter_subject_keywords": ["最新內容動態"],
             "labels": {},
         }
     )
@@ -33,6 +37,7 @@ class ClassifierTests(unittest.TestCase):
         result = classify_messages([msg], _settings())
         self.assertEqual(len(result.important), 1)
         self.assertFalse(result.move_candidates)
+        self.assertIn("snippet", result.important[0])
 
 
     def test_move_promotions(self) -> None:
@@ -51,6 +56,60 @@ class ClassifierTests(unittest.TestCase):
         result = classify_messages([msg], _settings())
         self.assertEqual(len(result.move_candidates), 1)
         self.assertTrue(result.move_candidates[0].reason.startswith("gmail category"))
+
+    def test_manual_exclude_sender_overrides_keep(self) -> None:
+        msg = EmailMessage(
+            id="3",
+            thread_id="t3",
+            subject="important update",
+            sender="campaigns@m.brevo.com",
+            to="me@example.com",
+            date="",
+            snippet="invoice inside",
+            body_text="",
+            label_ids=["INBOX"],
+            internal_ts=0,
+        )
+        result = classify_messages([msg], _settings())
+        self.assertFalse(result.important)
+        self.assertEqual(len(result.move_candidates), 1)
+        self.assertIn("exclude-important sender", result.move_candidates[0].reason)
+
+    def test_manual_force_newsletter_sender(self) -> None:
+        msg = EmailMessage(
+            id="4",
+            thread_id="t4",
+            subject="service update",
+            sender="service@vocus.cc",
+            to="me@example.com",
+            date="",
+            snippet="hello",
+            body_text="",
+            label_ids=["INBOX"],
+            internal_ts=0,
+        )
+        result = classify_messages([msg], _settings())
+        self.assertFalse(result.important)
+        self.assertEqual(len(result.move_candidates), 1)
+        self.assertIn("manual newsletter sender", result.move_candidates[0].reason)
+
+    def test_newsletter_sources_are_moved(self) -> None:
+        msg = EmailMessage(
+            id="5",
+            thread_id="t5",
+            subject="weekly digest",
+            sender="digest@news.example.com",
+            to="me@example.com",
+            date="",
+            snippet="latest stories",
+            body_text="",
+            label_ids=["INBOX"],
+            internal_ts=0,
+        )
+        result = classify_messages([msg], _settings())
+        self.assertFalse(result.important)
+        self.assertEqual(len(result.move_candidates), 1)
+        self.assertIn("newsletter source rule", result.move_candidates[0].reason)
 
 
 if __name__ == "__main__":

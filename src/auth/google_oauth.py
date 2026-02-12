@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from src.env_utils import upsert_env_values
+from src.env_utils import DEFAULT_ENV_FILE, upsert_env_values
 
 
 class AuthFlowError(RuntimeError):
@@ -60,7 +60,8 @@ def obtain_refresh_token(client_id: str, client_secret: str, login_hint: str | N
     return credentials.refresh_token
 
 
-def save_refresh_token(env_path: str | Path, prefix: str, refresh_token: str) -> str:
+def save_refresh_token(env_path: str | Path | None, prefix: str, refresh_token: str) -> str:
     key = env_key(prefix, "GMAIL_REFRESH_TOKEN")
-    upsert_env_values(env_path, {key: refresh_token})
+    target_path = env_path or DEFAULT_ENV_FILE
+    upsert_env_values(target_path, {key: refresh_token})
     return key

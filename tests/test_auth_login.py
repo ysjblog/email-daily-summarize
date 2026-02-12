@@ -34,6 +34,23 @@ class AuthLoginTests(unittest.TestCase):
             if backup_secret is not None:
                 os.environ[key_secret] = backup_secret
 
+    def test_save_refresh_token_default_path(self) -> None:
+        original_home = os.environ.get("HOME")
+        with tempfile.TemporaryDirectory() as tmp:
+            os.environ["HOME"] = tmp
+            try:
+                key = save_refresh_token(None, "WORK", "refresh-token-999")
+                target = Path(tmp) / ".config" / "daily-summarize" / "secrets.env"
+                content = target.read_text(encoding="utf-8")
+            finally:
+                if original_home is None:
+                    os.environ.pop("HOME", None)
+                else:
+                    os.environ["HOME"] = original_home
+
+        self.assertEqual(key, "WORK_GMAIL_REFRESH_TOKEN")
+        self.assertIn("WORK_GMAIL_REFRESH_TOKEN=refresh-token-999", content)
+
 
 if __name__ == "__main__":
     unittest.main()

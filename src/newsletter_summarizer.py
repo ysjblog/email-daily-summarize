@@ -5,18 +5,44 @@ import re
 from src.config import Settings
 from src.models import EmailMessage, NewsletterSummary
 
+NEWSLETTER_KEYWORDS = [
+    "newsletter",
+    "digest",
+    "weekly",
+    "daily update",
+    "edition",
+    "top stories",
+    "highlights",
+    "電子報",
+    "週報",
+    "最新內容",
+    "精選",
+]
+
+TRANSACTIONAL_HINTS = [
+    "receipt",
+    "invoice",
+    "verification",
+    "security alert",
+    "password reset",
+    "billing",
+    "付款",
+    "帳單",
+    "驗證碼",
+]
+
+PROMOTION_LABEL = "CATEGORY_PROMOTIONS"
+
 
 def summarize_newsletters(messages: list[EmailMessage], settings: Settings) -> list[NewsletterSummary]:
-    matched = [m for m in messages if _is_newsletter_source(m.sender, settings.newsletter_sources)]
-    seen_sources: set[str] = set()
+    matched = [
+        m
+        for m in messages
+        if _is_newsletter_source(m.sender, settings.newsletter_sources) or _looks_like_newsletter(m)
+    ]
     summaries: list[NewsletterSummary] = []
 
     for msg in matched:
-        sender_key = msg.sender.lower()
-        if sender_key in seen_sources:
-            continue
-        seen_sources.add(sender_key)
-
         text = f"{msg.subject}. {msg.snippet}. {msg.body_text}".strip()
         bullets = _extract_bullets(text, max_items=5)
         links = _extract_links(msg.body_text + " " + msg.snippet)
@@ -43,6 +69,22 @@ def _is_newsletter_source(sender: str, sources: list[str]) -> bool:
             return True
         if rule in sender:
             return True
+    return False
+
+
+def _looks_like_newsletter(msg: EmailMessage) -> bool:
+    full_text = f"{msg.sender} {msg.subject} {msg.snippet}".lower()
+    if any(hint in full_text for hint in TRANSACTIONAL_HINTS):
+        return False
+
+    if any(keyword in full_text for keyword in NEWSLETTER_KEYWORDS):
+        return True
+
+    if PROMOTION_LABEL in set(msg.label_ids):
+        sender_subject = f"{msg.sender} {msg.subject}".lower()
+        promotion_hints = ["news", "digest", "update", "newsletter", "weekly", "daily", "電子報", "週報", "最新內容"]
+        return any(hint in sender_subject for hint in promotion_hints)
+
     return False
 
 

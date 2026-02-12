@@ -12,8 +12,9 @@ from zoneinfo import ZoneInfo
 from src.auth.google_oauth import obtain_refresh_token, read_client_credentials, save_refresh_token
 from src.classifier import classify_messages
 from src.config import AccountSettings, ConfigError, Settings, load_settings
-from src.digest_builder import build_combined_digest, build_line_digest
-from src.env_utils import load_env_into_os
+from src.config_ui_server import run_config_ui_server
+from src.digest_builder import build_combined_digest, build_external_safe_digest, build_line_digest
+from src.env_utils import DEFAULT_ENV_FILE, load_env_into_os
 from src.gmail_client import GmailClient
 from src.logging_utils import build_logger
 from src.models import RunReport, utc_now_iso
@@ -25,22 +26,36 @@ from src.spam_inspector import inspect_spam_messages
 from src.state_store import StateStore
 
 
+def _positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Daily Gmail summarize automation")
     parser.add_argument("--config", default="config/settings.yaml", help="path to settings yaml")
-    parser.add_argument("--env-file", default=".env", help="path to .env file")
+    parser.add_argument("--env-file", default=DEFAULT_ENV_FILE, help="path to secrets env file")
 
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     run = sub.add_parser("run", help="run pipeline with move actions")
     run.add_argument("--account", help="run only one account id", default=None)
+    run.add_argument("--hours", type=_positive_int, help="force time window in hours (e.g. 24)", default=None)
 
     dry_run = sub.add_parser("dry-run", help="run pipeline without moving emails")
     dry_run.add_argument("--account", help="run only one account id", default=None)
+    dry_run.add_argument("--hours", type=_positive_int, help="force time window in hours (e.g. 24)", default=None)
 
     backfill = sub.add_parser("backfill", help="run historical dry-run")
     backfill.add_argument("--days", type=int, default=7, help="how many days to backfill")
     backfill.add_argument("--account", help="run only one account id", default=None)
+    backfill.add_argument("--notify", action="store_true", help="send digest notification for each backfill window")
+
+    config_ui = sub.add_parser("config-ui", help="run local web UI for settings.yaml")
+    config_ui.add_argument("--host", default="127.0.0.1", help="host for config UI")
+    config_ui.add_argument("--port", type=int, default=8765, help="port for config UI")
 
     auth = sub.add_parser("auth", help="authentication related commands")
     auth_sub = auth.add_subparsers(dest="auth_cmd", required=True)
@@ -64,11 +79,27 @@ def main() -> int:
         return 1
 
     if args.cmd == "run":
-        run_all_accounts(settings, dry_run=False, target_account=args.account, logger_name=logger.name)
+        start_dt, end_dt = _window_from_hours(settings.timezone, args.hours)
+        run_all_accounts(
+            settings,
+            dry_run=False,
+            target_account=args.account,
+            window_start=start_dt,
+            window_end=end_dt,
+            logger_name=logger.name,
+        )
         return 0
 
     if args.cmd == "dry-run":
-        run_all_accounts(settings, dry_run=True, target_account=args.account, logger_name=logger.name)
+        start_dt, end_dt = _window_from_hours(settings.timezone, args.hours)
+        run_all_accounts(
+            settings,
+            dry_run=True,
+            target_account=args.account,
+            window_start=start_dt,
+            window_end=end_dt,
+            logger_name=logger.name,
+        )
         return 0
 
     if args.cmd == "backfill":
@@ -83,7 +114,12 @@ def main() -> int:
                 window_start=start_dt,
                 window_end=end_dt,
                 logger_name=logger.name,
+                send_digest=args.notify,
             )
+        return 0
+
+    if args.cmd == "config-ui":
+        run_config_ui_server(config_path=args.config, host=args.host, port=args.port)
         return 0
 
     return 1
@@ -98,6 +134,14 @@ def auth_login(settings: Settings, account_id: str, email: str | None, env_path:
     return 0
 
 
+def _window_from_hours(timezone: str, hours: int | None) -> tuple[datetime | None, datetime | None]:
+    if not hours:
+        return None, None
+    end_dt = datetime.now(tz=ZoneInfo(timezone))
+    start_dt = end_dt - timedelta(hours=hours)
+    return start_dt, end_dt
+
+
 def run_all_accounts(
     settings: Settings,
     dry_run: bool,
@@ -105,6 +149,7 @@ def run_all_accounts(
     window_start: datetime | None = None,
     window_end: datetime | None = None,
     logger_name: str = "daily-summarize",
+    send_digest: bool = True,
 ) -> dict[str, Any]:
     logger = build_logger(logger_name)
     run_id = datetime.now(tz=ZoneInfo(settings.timezone)).strftime("%Y-%m-%d-%H%M")
@@ -142,21 +187,24 @@ def run_all_accounts(
             )
             write_account_reports(failure_report, "")
 
+    account_payloads = [r.to_dict() for r in account_reports]
     combined_digest = build_combined_digest(
         run_id=run_id,
-        account_reports=[r.to_dict() for r in account_reports],
+        account_reports=account_payloads,
         failed_accounts=failed_accounts,
     )
     write_combined_reports(run_id, dry_run, account_reports, failed_accounts, combined_digest)
 
-    deliver_digest(
-        settings=settings,
-        digest=combined_digest,
-        line_digest=build_line_digest(run_id, [r.to_dict() for r in account_reports], failed_accounts),
-        run_id=run_id,
-        logger=logger,
-        sender_client=sender_clients[0] if sender_clients else None,
-    )
+    if send_digest:
+        deliver_digest(
+            settings=settings,
+            digest=combined_digest,
+            run_id=run_id,
+            logger=logger,
+            sender_client=sender_clients[0] if sender_clients else None,
+            account_reports=account_payloads,
+            failed_accounts=failed_accounts,
+        )
 
     return {
         "run_id": run_id,
@@ -348,13 +396,16 @@ def write_combined_reports(
 def deliver_digest(
     settings: Settings,
     digest: str,
-    line_digest: str,
     run_id: str,
     logger,
     sender_client: GmailClient | None,
+    account_reports: list[dict[str, Any]],
+    failed_accounts: list[dict[str, str]],
 ) -> None:
     channels = settings.digest.get("channels", ["gmail"])
     subject = f"[Daily Email Digest][multi-account] {run_id}"
+    redaction_mode = settings.digest.get("redaction_mode", "strict")
+    safe_external_digest = build_external_safe_digest(run_id, account_reports, failed_accounts)
 
     if "gmail" in channels:
         to_email = settings.digest.get("gmail", {}).get("to")
@@ -367,16 +418,20 @@ def deliver_digest(
         channel_id = settings.digest.get("slack", {}).get("channel_id")
         if channel_id:
             try:
-                SlackBotNotifier().send(channel_id=channel_id, text=digest)
+                slack_text = safe_external_digest if redaction_mode == "strict" else digest
+                SlackBotNotifier().send(channel_id=channel_id, text=slack_text)
             except Exception as exc:  # pylint: disable=broad-except
                 logger.error("slack delivery failed: %s", exc)
 
     if "line" in channels:
         line_cfg = settings.digest.get("line", {})
-        target_user_id = line_cfg.get("target_user_id") or os.getenv("LINE_TARGET_USER_ID")
+        # Prefer .env for user ID to avoid leaking identifiers into tracked config files.
+        target_user_id = os.getenv("LINE_TARGET_USER_ID") or line_cfg.get("target_user_id")
         if line_cfg.get("enabled") and target_user_id:
             try:
-                LineNotifier().send(user_id=target_user_id, text=line_digest)
+                default_line = build_line_digest(run_id, account_reports, failed_accounts)
+                line_text = safe_external_digest if redaction_mode == "strict" else default_line
+                LineNotifier().send(user_id=target_user_id, text=line_text)
             except Exception as exc:  # pylint: disable=broad-except
                 logger.error("line delivery failed: %s", exc)
 

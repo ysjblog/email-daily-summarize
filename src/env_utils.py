@@ -1,11 +1,34 @@
 from __future__ import annotations
 
 import os
+import stat
 from pathlib import Path
+
+DEFAULT_ENV_FILE = "~/.config/daily-summarize/secrets.env"
+
+
+class EnvFilePermissionError(RuntimeError):
+    pass
+
+
+def resolve_env_path(path: str | Path) -> Path:
+    return Path(path).expanduser()
+
+
+def ensure_secure_env_permissions(path: str | Path) -> None:
+    env_path = resolve_env_path(path)
+    if not env_path.exists() or os.name == "nt":
+        return
+
+    mode = stat.S_IMODE(env_path.stat().st_mode)
+    if mode != 0o600:
+        raise EnvFilePermissionError(
+            f"Insecure env file permission: {env_path} mode={oct(mode)}. Please run: chmod 600 {env_path}"
+        )
 
 
 def parse_env_file(path: str | Path) -> dict[str, str]:
-    env_path = Path(path)
+    env_path = resolve_env_path(path)
     if not env_path.exists():
         return {}
 
@@ -20,6 +43,7 @@ def parse_env_file(path: str | Path) -> dict[str, str]:
 
 
 def load_env_into_os(path: str | Path = ".env", override: bool = False) -> dict[str, str]:
+    ensure_secure_env_permissions(path)
     loaded = parse_env_file(path)
     for key, value in loaded.items():
         if override or key not in os.environ:
@@ -28,7 +52,8 @@ def load_env_into_os(path: str | Path = ".env", override: bool = False) -> dict[
 
 
 def upsert_env_values(path: str | Path, updates: dict[str, str]) -> None:
-    env_path = Path(path)
+    env_path = resolve_env_path(path)
+    env_path.parent.mkdir(parents=True, exist_ok=True)
     existing_lines: list[str] = []
     if env_path.exists():
         existing_lines = env_path.read_text(encoding="utf-8").splitlines()
