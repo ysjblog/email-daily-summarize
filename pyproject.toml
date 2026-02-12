@@ -1,0 +1,13 @@
+[project]
+name = "daily-summerize"
+version = "0.2.0"
+description = "Multi-account Gmail digest and filtering automation"
+requires-python = ">=3.11"
+dependencies = [
+  "requests>=2.31.0",
+  "PyYAML>=6.0.1",
+  "google-auth-oauthlib>=1.2.0"
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

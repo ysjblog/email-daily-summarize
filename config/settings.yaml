@@ -1,0 +1,55 @@
+timezone: Asia/Taipei
+run_times:
+  - "09:00"
+  - "21:00"
+move_mode: moderate
+labels:
+  archive_label: "Auto/LowPriority"
+  review_label: "Auto/Review"
+  newsletter_label: "Auto/Newsletter"
+whitelist_senders:
+  - "boss@company.com"
+  - "@important-client.com"
+priority_keywords:
+  - "付款"
+  - "驗證碼"
+  - "合約"
+  - "客戶"
+  - "invoice"
+  - "security alert"
+newsletter_sources:
+  - "newsletter@substack.com"
+  - "@news.company.com"
+spam_scan:
+  enabled: true
+  action: report_only
+
+digest:
+  channels:
+    - gmail
+    - slack_bot
+    - line
+  gmail:
+    to: "your-address@gmail.com"
+  slack:
+    channel_id: "C0123456789"
+  line:
+    enabled: true
+    target_user_id: "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+accounts:
+  - id: work
+    display_name: "Work Mail"
+    env_prefix: "WORK"
+    enabled: true
+    digest_to: "your-address@gmail.com"
+    overrides:
+      whitelist_senders:
+        - "ceo@company.com"
+  - id: personal
+    display_name: "Personal Mail"
+    env_prefix: "PERSONAL"
+    enabled: true
+    overrides:
+      newsletter_sources:
+        - "newsletter@substack.com"
