@@ -32,6 +32,45 @@ bash scripts/quickstart.sh
 python -m src.main run --env-file ~/.config/daily-summarize/secrets.env
 ```
 
+## 本機每日自動排程（macOS）
+
+先完成一次 quickstart（建立 `.venv` + 驗證 secrets）：
+
+```bash
+bash scripts/quickstart.sh
+```
+
+啟動排程（依 `config/settings.yaml` 的 `run_times`）：
+
+```bash
+bash scripts/local_schedule.sh start
+```
+
+停止排程：
+
+```bash
+bash scripts/local_schedule.sh stop
+```
+
+檢查狀態：
+
+```bash
+bash scripts/local_schedule.sh status
+```
+
+立即手動跑一次（不等排程）：
+
+```bash
+bash scripts/local_schedule.sh run-now
+```
+
+也可以直接雙擊 repo 根目錄：
+- `start-local-schedule.command`
+- `stop-local-schedule.command`
+- `status-local-schedule.command`
+
+預設時間為台灣時間 `12:00` 與 `20:00`（來自 `config/settings.yaml` 的 `run_times`）。
+
 ## 設定檔
 
 主要設定在 `config/settings.yaml`。

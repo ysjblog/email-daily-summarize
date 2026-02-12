@@ -1,7 +1,7 @@
 timezone: Asia/Taipei
 run_times:
-- 09:00
-- '21:00'
+- '12:00'
+- '20:00'
 move_mode: moderate
 labels:
   archive_label: Auto/LowPriority
