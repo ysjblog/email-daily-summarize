@@ -58,7 +58,8 @@ class MainMultiAccountTests(unittest.TestCase):
     def test_parse_args_uses_secure_default_env_file(self) -> None:
         with patch("sys.argv", ["prog", "dry-run"]):
             args = parse_args()
-        self.assertEqual(args.env_file, "~/.config/daily-summarize/secrets.env")
+        self.assertEqual(args.env_file, "config/secrets.local.env")
+        self.assertEqual(args.config, "config/settings.local.yaml")
 
     @patch("src.main.deliver_digest")
     @patch("src.main.write_combined_reports")

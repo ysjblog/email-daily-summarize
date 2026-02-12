@@ -3,6 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from unittest.mock import patch
+
 from src.auth.google_oauth import AuthFlowError, env_key, read_client_credentials, save_refresh_token
 
 
@@ -35,21 +37,15 @@ class AuthLoginTests(unittest.TestCase):
                 os.environ[key_secret] = backup_secret
 
     def test_save_refresh_token_default_path(self) -> None:
-        original_home = os.environ.get("HOME")
         with tempfile.TemporaryDirectory() as tmp:
-            os.environ["HOME"] = tmp
-            try:
+            temp_default = str(Path(tmp) / "mock_secrets.env")
+            with patch("src.auth.google_oauth.DEFAULT_ENV_FILE", temp_default):
                 key = save_refresh_token(None, "WORK", "refresh-token-999")
-                target = Path(tmp) / ".config" / "daily-summarize" / "secrets.env"
+                target = Path(temp_default)
                 content = target.read_text(encoding="utf-8")
-            finally:
-                if original_home is None:
-                    os.environ.pop("HOME", None)
-                else:
-                    os.environ["HOME"] = original_home
 
-        self.assertEqual(key, "WORK_GMAIL_REFRESH_TOKEN")
-        self.assertIn("WORK_GMAIL_REFRESH_TOKEN=refresh-token-999", content)
+                self.assertEqual(key, "WORK_GMAIL_REFRESH_TOKEN")
+                self.assertIn("WORK_GMAIL_REFRESH_TOKEN=refresh-token-999", content)
 
 
 if __name__ == "__main__":
