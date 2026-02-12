@@ -6,6 +6,7 @@ from typing import Any, Callable
 LINE_MAX_CHARS = 4900
 LINE_SECTION_LIMIT = 3
 IMPORTANT_SNIPPET_MAX_CHARS = 20
+NEWSLETTER_SUMMARY_MAX_CHARS = 35
 
 
 def build_combined_digest(
@@ -20,15 +21,15 @@ def build_combined_digest(
         lines.append("")
     else:
         section_defs = [
-            ("1) **重要信件**", "important", _render_markdown_important_item, 10),
-            ("2) **電子報摘要**", "newsletters", _render_markdown_newsletter_item, 10),
-            ("3) **已搬移信件**", "moved", _render_markdown_moved_item, 20),
-            ("4) **疑似垃圾但重要**", "spam_suspects", _render_markdown_spam_item, 20),
+            ("重要信件", "important", _render_markdown_important_item, 10),
+            ("電子報摘要", "newsletters", _render_markdown_newsletter_item, 10),
+            ("已搬移信件", "moved", _render_markdown_moved_item, 20),
+            ("疑似垃圾但重要", "spam_suspects", _render_markdown_spam_item, 20),
         ]
 
-        for title, key, renderer, limit in section_defs:
+        for index, (title, key, renderer, limit) in enumerate(section_defs, start=1):
             total = sum(len(account.get(key, [])) for account in account_reports)
-            lines.append(f"## {title} _({total})_")
+            lines.append(f"## {index}) {_section_title_icon(key)} **{title}** _({total})_")
             lines.append("")
 
             for account in account_reports:
@@ -61,24 +62,14 @@ def build_line_digest(run_id: str, account_reports: list[dict[str, Any]], failed
     else:
         lines.append("")
         section_defs = [
-            ("1) 重要信件", "important", _render_important_item, None),
-            ("2) 電子報摘要", "newsletters", _render_newsletter_item, LINE_SECTION_LIMIT),
-            (
-                "3) 已搬移摘要",
-                "moved",
-                lambda item: [f"- {item.get('sender', 'unknown sender')} | {item.get('subject', '(no subject)')}"],
-                LINE_SECTION_LIMIT,
-            ),
-            (
-                "4) 疑似垃圾但重要",
-                "spam_suspects",
-                lambda item: [f"- {item.get('sender', 'unknown sender')} | {item.get('subject', '(no subject)')}"],
-                LINE_SECTION_LIMIT,
-            ),
+            ("重要信件", "important", _render_important_item, None),
+            ("電子報摘要", "newsletters", _render_newsletter_item, LINE_SECTION_LIMIT),
+            ("已搬移摘要", "moved", _render_line_moved_item, LINE_SECTION_LIMIT),
+            ("疑似垃圾但重要", "spam_suspects", _render_line_spam_item, LINE_SECTION_LIMIT),
         ]
 
-        for title, key, renderer, max_items in section_defs:
-            lines.append(f"【{title}（依帳號）】")
+        for index, (title, key, renderer, max_items) in enumerate(section_defs, start=1):
+            lines.append(f"【{index}) {_section_title_icon(key)} {title}】")
             for account in account_reports:
                 lines.extend(
                     _render_line_account_section(
@@ -114,11 +105,12 @@ def _render_markdown_account_section(
     account_id = account.get("account_id", "unknown")
     items = account.get(key, [])
     shown = items[:max_items]
+    account_icon = _account_icon(account_id)
 
-    lines = [f"### **{name}** (`{account_id}`)"]
+    lines = [f"### {account_icon} **{name}** (`{account_id}`) · _{len(items)} 封_"]
     lines.append("")
     if not shown:
-        lines.append("- _無_")
+        lines.append("- _📭 無_")
         lines.append("")
         return lines
 
@@ -144,9 +136,9 @@ def _render_markdown_important_item(item: dict[str, Any]) -> list[str]:
     snippet = _truncate_text(str(item.get("snippet", "")).strip(), 120)
     rendered_snippet = snippet if snippet else "(無)"
     return [
-        f"- **寄件人**：`{sender}`",
-        f"  **主旨**：**{subject}**",
-        f"  _摘要_：{rendered_snippet}",
+        f"- 👤 **寄件人**：`{sender}`",
+        f"- ✉️ **主旨**：**{subject}**",
+        f"- 📝 **摘要**：_{rendered_snippet}_",
     ]
 
 
@@ -156,9 +148,9 @@ def _render_markdown_newsletter_item(item: dict[str, Any]) -> list[str]:
     bullets = item.get("bullets", [])
     summary = _truncate_text(str(bullets[0]).strip(), 120) if bullets else "(無摘要)"
     return [
-        f"- **寄件人**：`{source}`",
-        f"  **主旨**：**{subject}**",
-        f"  _摘要_：{summary}",
+        f"- 👤 **寄件人**：`{source}`",
+        f"- ✉️ **主旨**：**{subject}**",
+        f"- 📰 **摘要**：_{summary}_",
     ]
 
 
@@ -167,9 +159,9 @@ def _render_markdown_moved_item(item: dict[str, Any]) -> list[str]:
     subject = item.get("subject", "(no subject)")
     reason = item.get("reason", "")
     return [
-        f"- **寄件人**：`{sender}`",
-        f"  **主旨**：**{subject}**",
-        f"  _原因_：{reason or '(無)'}",
+        f"- 👤 **寄件人**：`{sender}`",
+        f"- 🔻 **主旨**：~~{subject}~~",
+        f"- 🔴 **原因**：_{reason or '(無)'}_",
     ]
 
 
@@ -179,9 +171,10 @@ def _render_markdown_spam_item(item: dict[str, Any]) -> list[str]:
     score = item.get("score", 0)
     reasons = ", ".join(item.get("reasons", []))
     return [
-        f"- **寄件人**：`{sender}`",
-        f"  **主旨**：**{subject}**",
-        f"  _分數_：{score} | _原因_：{reasons or '(無)'}",
+        f"- 👤 **寄件人**：`{sender}`",
+        f"- ⚠️ **主旨**：**{subject}**",
+        f"- 🔴 **分數**：**{score}**",
+        f"- 🧾 **原因**：_{reasons or '(無)'}_",
     ]
 
 
@@ -194,13 +187,21 @@ def build_external_safe_digest(
     if not account_reports:
         lines.append("- 無成功帳號。")
     else:
-        for account in account_reports:
-            name = account.get("display_name") or account.get("account_id", "unknown")
-            lines.append(f"【{name}】")
-            lines.append(f"- 重要信件數: {len(account.get('important', []))}")
-            lines.append(f"- 已搬移數: {len(account.get('moved', []))}")
-            lines.append(f"- 可疑垃圾郵件數: {len(account.get('spam_suspects', []))}")
-            lines.append(f"- 電子報摘要數: {len(account.get('newsletters', []))}")
+        section_defs = [
+            ("重要信件", "important"),
+            ("電子報摘要", "newsletters"),
+            ("已搬移信件", "moved"),
+            ("疑似垃圾但重要", "spam_suspects"),
+        ]
+
+        for index, (title, key) in enumerate(section_defs, start=1):
+            total = sum(len(account.get(key, [])) for account in account_reports)
+            lines.append(f"【{index}) {_section_title_icon(key)} {title}】")
+            lines.append(f"- 總數: {total}")
+            for account in account_reports:
+                name = account.get("display_name") or account.get("account_id", "unknown")
+                account_id = account.get("account_id", "unknown")
+                lines.append(f"- {_account_icon(account_id)} {name} ({account_id}): {len(account.get(key, []))}")
             lines.append("")
 
     if failed_accounts:
@@ -247,10 +248,11 @@ def _render_line_account_section(
     items = account.get(key, [])
     shown = len(items) if max_items is None else min(len(items), max_items)
     sliced = items if max_items is None else items[:max_items]
+    account_icon = _account_icon(account_id)
 
-    lines = [f"＜{name} ({account_id})＞ ({shown}/{len(items)})"]
+    lines = [f"＜{account_icon} {name} ({account_id})＞ ({shown}/{len(items)})"]
     if not items:
-        lines.extend(["- 無", ""])
+        lines.extend(["- 📭 無", ""])
         return lines
 
     for item in sliced:
@@ -267,7 +269,9 @@ def _render_line_account_section(
 def _render_newsletter_item(item: dict[str, Any]) -> list[str]:
     subject = item.get("subject", "(no subject)")
     source = item.get("source", "unknown source")
-    return [f"- {source} | {subject}"]
+    bullets = item.get("bullets", [])
+    summary = _truncate_text(str(bullets[0]).strip(), NEWSLETTER_SUMMARY_MAX_CHARS) if bullets else "(無)"
+    return [f"- 👤 寄件人: {source}", f"  ✉️ 主旨: {subject}", f"  📰 摘要: {summary}"]
 
 
 def _render_important_item(item: dict[str, Any]) -> list[str]:
@@ -275,8 +279,42 @@ def _render_important_item(item: dict[str, Any]) -> list[str]:
     subject = item.get("subject", "(no subject)")
     snippet = _truncate_text(str(item.get("snippet", "")).strip(), IMPORTANT_SNIPPET_MAX_CHARS)
     if snippet:
-        return [f"- {sender} | {subject}", f"  摘要: {snippet}"]
-    return [f"- {sender} | {subject}", "  摘要: (無)"]
+        return [f"- 👤 寄件人: {sender}", f"  ✉️ 主旨: {subject}", f"  📝 摘要: {snippet}"]
+    return [f"- 👤 寄件人: {sender}", f"  ✉️ 主旨: {subject}", "  📝 摘要: (無)"]
+
+
+def _render_line_moved_item(item: dict[str, Any]) -> list[str]:
+    sender = item.get("sender", "unknown sender")
+    subject = item.get("subject", "(no subject)")
+    reason = str(item.get("reason", "")).strip()
+    rendered_reason = _truncate_text(reason, NEWSLETTER_SUMMARY_MAX_CHARS) if reason else "(無)"
+    return [f"- 👤 寄件人: {sender}", f"  🔻 主旨: ~~{subject}~~", f"  🔴 原因: {rendered_reason}"]
+
+
+def _render_line_spam_item(item: dict[str, Any]) -> list[str]:
+    sender = item.get("sender", "unknown sender")
+    subject = item.get("subject", "(no subject)")
+    score = item.get("score", 0)
+    return [f"- 👤 寄件人: {sender}", f"  ⚠️ 主旨: {subject}", f"  🔴 分數: {score}"]
+
+
+def _account_icon(account_id: object) -> str:
+    account_key = str(account_id).strip().lower()
+    if account_key == "work":
+        return "💼"
+    if account_key == "personal":
+        return "🏠"
+    return "📫"
+
+
+def _section_title_icon(key: str) -> str:
+    mapping = {
+        "important": "⭐",
+        "newsletters": "📰",
+        "moved": "📦",
+        "spam_suspects": "🚨",
+    }
+    return mapping.get(key, "📌")
 
 
 def _truncate_text(text: str, max_chars: int) -> str:

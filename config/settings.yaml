@@ -53,7 +53,8 @@ accounts:
     - service@vocus.cc
     - support@johntool.com
     - service@tnf.org.tw
-exclude_important_senders: []
+exclude_important_senders:
+- '@channels.com.tw'
 exclude_important_subject_keywords: []
 force_newsletter_senders: []
 force_newsletter_subject_keywords: []
