@@ -155,8 +155,8 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 
 def _validate_redaction_mode(value: Any) -> str:
     mode = str(value).strip().lower()
-    if mode not in {"strict", "balanced"}:
-        raise ConfigError("digest.redaction_mode must be one of: strict, balanced")
+    if mode not in {"strict", "balanced", "none"}:
+        raise ConfigError("digest.redaction_mode must be one of: strict, balanced, none")
     return mode
 
 

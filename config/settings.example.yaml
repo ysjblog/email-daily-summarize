@@ -20,9 +20,10 @@ spam_scan:
   enabled: true
   action: report_only
 digest:
-  redaction_mode: strict
+  redaction_mode: none
   channels:
   - gmail
+  - line
   gmail:
     to: your-email@example.com
   slack:

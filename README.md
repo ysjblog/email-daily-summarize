@@ -97,13 +97,7 @@ bash scripts/quickstart.sh
 bash scripts/run_daily_digest.sh
 ```
 
-## 6) 正式執行
 
-請使用我們提供的腳本（會自動載入 Python 環境）：
-
-```bash
-bash scripts/run_daily_digest.sh
-```
 
 ## 7) 進階指令（需先啟動虛擬環境）
 
@@ -111,20 +105,33 @@ bash scripts/run_daily_digest.sh
 
 > 💡 Dry-run 模式可以安全地預覽分類結果的報表通知，且**不會**實際搬移郵件。
 
+1. 進入虛擬環境：
+
 ```bash
-# 1. 進入虛擬環境
 source .venv/bin/activate
+```
 
-# 模擬執行（不移動信件）
+2. 模擬執行（不移動信件）：
+
+```bash
 python -m src.main dry-run
+```
 
-# 模擬過去 24 小時
+3. 模擬過去 24 小時（常用於除錯）：
+
+```bash
 python -m src.main dry-run --hours 24
+```
 
-# 回溯過去 7 天的報表
+4. 回溯過去 7 天的報表：
+
+```bash
 python -m src.main backfill --days 7
+```
 
-# 開啟設定 UI（也可直接雙擊 open-config-ui.command）
+5. 開啟設定 UI（也可直接雙擊 open-config-ui.command）：
+
+```bash
 python -m src.main config-ui
 ```
 
