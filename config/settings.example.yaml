@@ -28,7 +28,7 @@ digest:
   slack:
     channel_id: ''
   line:
-    enabled: false
+    enabled: true
 accounts:
 - id: work
   display_name: Work Mail

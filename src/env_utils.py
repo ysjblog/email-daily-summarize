@@ -4,7 +4,7 @@ import os
 import stat
 from pathlib import Path
 
-DEFAULT_ENV_FILE = "~/.config/daily-summarize/secrets.env"
+DEFAULT_ENV_FILE = "config/secrets.local.env"
 
 
 class EnvFilePermissionError(RuntimeError):

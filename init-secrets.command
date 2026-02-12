@@ -2,8 +2,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "$0")" && pwd)"
-TARGET_DIR="${HOME}/.config/daily-summarize"
-TARGET_FILE="${TARGET_DIR}/secrets.env"
+TARGET_DIR="${REPO_ROOT}/config"
+TARGET_FILE="${TARGET_DIR}/secrets.local.env"
 SOURCE_FILE="${REPO_ROOT}/config/secrets.example.env"
 
 if [[ ! -f "${SOURCE_FILE}" ]]; then

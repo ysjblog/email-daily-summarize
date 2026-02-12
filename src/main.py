@@ -35,7 +35,7 @@ def _positive_int(value: str) -> int:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Daily Gmail summarize automation")
-    parser.add_argument("--config", default="config/settings.yaml", help="path to settings yaml")
+    parser.add_argument("--config", default="config/settings.local.yaml", help="path to settings yaml")
     parser.add_argument("--env-file", default=DEFAULT_ENV_FILE, help="path to secrets env file")
 
     sub = parser.add_subparsers(dest="cmd", required=True)
