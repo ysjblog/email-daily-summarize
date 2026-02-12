@@ -38,6 +38,7 @@ class ClassifierTests(unittest.TestCase):
         self.assertEqual(len(result.important), 1)
         self.assertFalse(result.move_candidates)
         self.assertIn("snippet", result.important[0])
+        self.assertIn("important score", result.important[0]["reason"])
 
 
     def test_move_promotions(self) -> None:
@@ -55,7 +56,8 @@ class ClassifierTests(unittest.TestCase):
         )
         result = classify_messages([msg], _settings())
         self.assertEqual(len(result.move_candidates), 1)
-        self.assertTrue(result.move_candidates[0].reason.startswith("gmail category"))
+        self.assertIn("newsletter score", result.move_candidates[0].reason)
+        self.assertEqual(result.move_candidates[0].bucket, "newsletter")
 
     def test_manual_exclude_sender_overrides_keep(self) -> None:
         msg = EmailMessage(
@@ -74,6 +76,7 @@ class ClassifierTests(unittest.TestCase):
         self.assertFalse(result.important)
         self.assertEqual(len(result.move_candidates), 1)
         self.assertIn("exclude-important sender", result.move_candidates[0].reason)
+        self.assertEqual(result.move_candidates[0].bucket, "low_priority")
 
     def test_manual_force_newsletter_sender(self) -> None:
         msg = EmailMessage(
@@ -92,6 +95,8 @@ class ClassifierTests(unittest.TestCase):
         self.assertFalse(result.important)
         self.assertEqual(len(result.move_candidates), 1)
         self.assertIn("manual newsletter sender", result.move_candidates[0].reason)
+        self.assertEqual(result.move_candidates[0].bucket, "newsletter")
+        self.assertEqual(result.newsletter_candidate_ids, {"4"})
 
     def test_newsletter_sources_are_moved(self) -> None:
         msg = EmailMessage(
@@ -109,7 +114,106 @@ class ClassifierTests(unittest.TestCase):
         result = classify_messages([msg], _settings())
         self.assertFalse(result.important)
         self.assertEqual(len(result.move_candidates), 1)
-        self.assertIn("newsletter source rule", result.move_candidates[0].reason)
+        self.assertIn("newsletter score", result.move_candidates[0].reason)
+        self.assertEqual(result.move_candidates[0].bucket, "newsletter")
+        self.assertEqual(result.newsletter_candidate_ids, {"5"})
+
+    def test_move_mode_affects_borderline_case(self) -> None:
+        msg = EmailMessage(
+            id="6",
+            thread_id="t6",
+            subject="Friend update",
+            sender="friend@community.io",
+            to="me@example.com",
+            date="",
+            snippet="Let us reconnect",
+            body_text="",
+            label_ids=["INBOX", "CATEGORY_SOCIAL"],
+            internal_ts=0,
+        )
+        aggressive = Settings(
+            {
+                "move_mode": "aggressive",
+                "whitelist_senders": [],
+                "priority_keywords": [],
+                "newsletter_sources": [],
+                "labels": {},
+            }
+        )
+        conservative = Settings(
+            {
+                "move_mode": "conservative",
+                "whitelist_senders": [],
+                "priority_keywords": [],
+                "newsletter_sources": [],
+                "labels": {},
+            }
+        )
+
+        aggressive_result = classify_messages([msg], aggressive)
+        conservative_result = classify_messages([msg], conservative)
+
+        self.assertEqual(len(aggressive_result.move_candidates), 1)
+        self.assertFalse(conservative_result.move_candidates)
+
+    def test_scoring_override_can_keep_promotions(self) -> None:
+        msg = EmailMessage(
+            id="7",
+            thread_id="t7",
+            subject="special offer",
+            sender="promo@shop.com",
+            to="me@example.com",
+            date="",
+            snippet="buy now",
+            body_text="",
+            label_ids=["INBOX", "CATEGORY_PROMOTIONS"],
+            internal_ts=0,
+        )
+        settings = Settings(
+            {
+                "whitelist_senders": [],
+                "priority_keywords": [],
+                "newsletter_sources": [],
+                "labels": {},
+                "scoring": {
+                    "keep_threshold": 1,
+                    "move_threshold": -10,
+                    "newsletter_threshold": 99,
+                },
+            }
+        )
+
+        result = classify_messages([msg], settings)
+        self.assertEqual(len(result.important), 1)
+        self.assertFalse(result.move_candidates)
+
+    def test_newsletter_structure_hint_in_body_moves_message(self) -> None:
+        msg = EmailMessage(
+            id="8",
+            thread_id="t8",
+            subject="Product update",
+            sender="creator@newsletter.example.com",
+            to="me@example.com",
+            date="",
+            snippet="This week we shipped new features.",
+            body_text="To unsubscribe, manage preferences at https://example.com/unsubscribe",
+            label_ids=["INBOX"],
+            internal_ts=0,
+        )
+        settings = Settings(
+            {
+                "whitelist_senders": [],
+                "priority_keywords": [],
+                "newsletter_sources": [],
+                "labels": {},
+            }
+        )
+
+        result = classify_messages([msg], settings)
+        self.assertFalse(result.important)
+        self.assertEqual(len(result.move_candidates), 1)
+        self.assertEqual(result.move_candidates[0].bucket, "newsletter")
+        self.assertIn("newsletter score", result.move_candidates[0].reason)
 
 
 if __name__ == "__main__":

@@ -102,6 +102,33 @@ class NewsletterSummarizerTests(unittest.TestCase):
         summaries = summarize_newsletters([msg], settings)
         self.assertEqual(len(summaries), 0)
 
+    def test_newsletter_summary_uses_preclassified_messages_directly(self) -> None:
+        settings = Settings(
+            {
+                "newsletter_sources": [],
+                "whitelist_senders": [],
+                "priority_keywords": [],
+                "labels": {},
+            }
+        )
+
+        msg = EmailMessage(
+            id="n5",
+            thread_id="tn5",
+            subject="Campaign has been sent",
+            sender="contact@mailer.example.com",
+            to="me@example.com",
+            date="",
+            snippet="delivery status",
+            body_text="View report https://example.com/report",
+            label_ids=["INBOX"],
+            internal_ts=0,
+        )
+
+        summaries = summarize_newsletters([msg], settings, preclassified=True)
+        self.assertEqual(len(summaries), 1)
+        self.assertEqual(summaries[0].subject, msg.subject)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -282,7 +282,7 @@ def _render_page(raw: dict[str, Any]) -> str:
         "<p>這個頁面會直接更新 <code>config/settings.yaml</code>，儲存後下次執行會立即生效。</p>",
         "<p><strong>規則優先順序：</strong>「排除重要」與「強制電子報」會先判斷，再套用白名單、關鍵字與其他分類邏輯。</p>",
         "<ol class='tips'>",
-        "<li>想把某類信件從重要信件拿掉，請加到「排除重要」。</li>",
+        "<li>想把某類信件從重要信件拿掉（黑名單效果），請加到「排除重要」。</li>",
         "<li>想把某類信件固定歸到電子報，請加到「強制電子報」。</li>",
         "<li>建議先用 <code>dry-run --hours 24</code> 檢查結果，再做正式 <code>run</code>。</li>",
         "</ol>",
@@ -312,8 +312,8 @@ def _render_page(raw: dict[str, Any]) -> str:
     )
     lines.extend(
         _render_rule_block(
-            title="排除重要：寄件者",
-            description="符合寄件者規則的信件，會直接排除在重要信件之外。",
+            title="黑名單（排除重要）：寄件者",
+            description="符合寄件者規則的信件，會直接排除在重要信件之外（視為黑名單）。",
             items=exclude_senders,
             add_action="add_global_exclude_important_sender",
             remove_action="remove_global_exclude_important_sender",
@@ -322,8 +322,8 @@ def _render_page(raw: dict[str, Any]) -> str:
     )
     lines.extend(
         _render_rule_block(
-            title="排除重要：主旨關鍵字",
-            description="主旨或摘要包含這些字詞時，會直接排除在重要信件之外。",
+            title="黑名單（排除重要）：主旨關鍵字",
+            description="主旨或摘要包含這些字詞時，會直接排除在重要信件之外（視為黑名單）。",
             items=exclude_subjects,
             add_action="add_global_exclude_important_subject",
             remove_action="remove_global_exclude_important_subject",
@@ -403,8 +403,8 @@ def _render_page(raw: dict[str, Any]) -> str:
         )
         lines.extend(
             _render_rule_block(
-                title="排除重要：寄件者（帳號覆寫）",
-                description="只對這個帳號生效，符合時直接排除在重要信件外。",
+                title="黑名單（排除重要）：寄件者（帳號覆寫）",
+                description="只對這個帳號生效，符合時直接排除在重要信件外（黑名單）。",
                 items=account_exclude_senders,
                 add_action="add_account_exclude_important_sender",
                 remove_action="remove_account_exclude_important_sender",
@@ -414,8 +414,8 @@ def _render_page(raw: dict[str, Any]) -> str:
         )
         lines.extend(
             _render_rule_block(
-                title="排除重要：主旨關鍵字（帳號覆寫）",
-                description="只對這個帳號生效，主旨/摘要命中時直接排除重要。",
+                title="黑名單（排除重要）：主旨關鍵字（帳號覆寫）",
+                description="只對這個帳號生效，主旨/摘要命中時直接排除重要（黑名單）。",
                 items=account_exclude_subjects,
                 add_action="add_account_exclude_important_subject",
                 remove_action="remove_account_exclude_important_subject",

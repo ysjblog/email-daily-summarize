@@ -34,12 +34,19 @@ TRANSACTIONAL_HINTS = [
 PROMOTION_LABEL = "CATEGORY_PROMOTIONS"
 
 
-def summarize_newsletters(messages: list[EmailMessage], settings: Settings) -> list[NewsletterSummary]:
-    matched = [
-        m
-        for m in messages
-        if _is_newsletter_source(m.sender, settings.newsletter_sources) or _looks_like_newsletter(m)
-    ]
+def summarize_newsletters(
+    messages: list[EmailMessage],
+    settings: Settings,
+    preclassified: bool = False,
+) -> list[NewsletterSummary]:
+    if preclassified:
+        matched = list(messages)
+    else:
+        matched = [
+            m
+            for m in messages
+            if _is_newsletter_source(m.sender, settings.newsletter_sources) or _looks_like_newsletter(m)
+        ]
     summaries: list[NewsletterSummary] = []
 
     for msg in matched:
