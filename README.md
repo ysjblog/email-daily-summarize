@@ -97,24 +97,25 @@ bash scripts/quickstart.sh
 bash scripts/run_daily_digest.sh
 ```
 
-**手動執行方式**（需先啟動虛擬環境）：
+## 6) 正式執行
+
+請使用我們提供的腳本（會自動載入 Python 環境）：
 
 ```bash
-# 1. 啟動虛擬環境
-source .venv/bin/activate
-
-# 2. 執行主程式（設定檔已預設指向 local config）
-python -m src.main run
+bash scripts/run_daily_digest.sh
 ```
 
-## 7) 常用指令（需先啟動虛擬環境）
+## 7) 進階指令（需先啟動虛擬環境）
+
+以下指令適合**除錯**或**補跑**資料時使用。
 
 > 💡 Dry-run 模式可以安全地預覽分類結果的報表通知，且**不會**實際搬移郵件。
 
 ```bash
+# 1. 進入虛擬環境
 source .venv/bin/activate
 
-# 模擬執行（不移動信件、不發通知）
+# 模擬執行（不移動信件）
 python -m src.main dry-run
 
 # 模擬過去 24 小時
@@ -123,7 +124,7 @@ python -m src.main dry-run --hours 24
 # 回溯過去 7 天的報表
 python -m src.main backfill --days 7
 
-# 開啟設定 UI
+# 開啟設定 UI（也可直接雙擊 open-config-ui.command）
 python -m src.main config-ui
 ```
 
@@ -159,28 +160,13 @@ bash scripts/local_schedule.sh run-now
 - `status-local-schedule.command`
 - `open-config-ui.command`
 
-## 9) GitHub Actions 排程
-- `.github/workflows/daily-email-digest.yml`：正式排程 job
-- `.github/workflows/ci.yml`：PR / push 時跑 unit tests
-
-若要在 GitHub 上跑 `daily-email-digest.yml`，請在 Repository Secrets 設定：
-- `WORK_GMAIL_CLIENT_ID`
-- `WORK_GMAIL_CLIENT_SECRET`
-- `WORK_GMAIL_REFRESH_TOKEN`
-- `PERSONAL_GMAIL_CLIENT_ID`
-- `PERSONAL_GMAIL_CLIENT_SECRET`
-- `PERSONAL_GMAIL_REFRESH_TOKEN`
-- （選用）`SLACK_BOT_TOKEN`
-- （選用）`LINE_CHANNEL_ACCESS_TOKEN`
-- （選用）`LINE_TARGET_USER_ID`
-
-## 10) 安全建議
+## 9) 安全建議
 - 不要把真實 token 放進 repo。
 - `config/secrets.local.env` 權限固定 `600`。
 - 對外通知建議使用 `digest.redaction_mode: strict`。
 - 詳細流程請看 `SECURITY.md`。
 
-## 11) 輸出位置
+## 10) 輸出位置
 - 報表：`data/reports/*.json`, `data/reports/*.md`
 - 狀態：`data/state/*.json`
 - 日誌：`logs/*.log`
