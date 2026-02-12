@@ -2,7 +2,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SECRETS_FILE="${HOME}/.config/daily-summarize/secrets.env"
+CONFIG_FILE="${DAILY_SUMMARIZE_CONFIG:-${HOME}/.config/daily-summarize/settings.yaml}"
+SECRETS_FILE="${DAILY_SUMMARIZE_ENV_FILE:-${HOME}/.config/daily-summarize/secrets.env}"
 
 cd "${REPO_ROOT}"
 
@@ -21,12 +22,17 @@ source .venv/bin/activate
 echo "[INFO] Installing dependencies..."
 pip install -r requirements.txt >/dev/null
 
+if [[ ! -f "${CONFIG_FILE}" ]]; then
+  echo "[ERROR] Missing config file: ${CONFIG_FILE}"
+  echo "Create it with:"
+  echo "  ./init-user-config.command"
+  exit 1
+fi
+
 if [[ ! -f "${SECRETS_FILE}" ]]; then
   echo "[ERROR] Missing secrets file: ${SECRETS_FILE}"
   echo "Create it with:"
-  echo "  mkdir -p ~/.config/daily-summarize"
-  echo "  cp config/secrets.example.env ~/.config/daily-summarize/secrets.env"
-  echo "  chmod 600 ~/.config/daily-summarize/secrets.env"
+  echo "  ./init-secrets.command"
   exit 1
 fi
 
@@ -37,15 +43,18 @@ if [[ "${perm}" != "600" ]]; then
   exit 1
 fi
 
-python - <<'PY'
+DAILY_SUMMARIZE_CONFIG="${CONFIG_FILE}" DAILY_SUMMARIZE_ENV_FILE="${SECRETS_FILE}" python - <<'PY'
 import os
 import sys
 
 from src.config import load_settings
 from src.env_utils import parse_env_file
 
-settings = load_settings("config/settings.yaml")
-env = parse_env_file(os.path.expanduser("~/.config/daily-summarize/secrets.env"))
+config_path = os.path.expanduser(os.environ["DAILY_SUMMARIZE_CONFIG"])
+secrets_path = os.path.expanduser(os.environ["DAILY_SUMMARIZE_ENV_FILE"])
+
+settings = load_settings(config_path)
+env = parse_env_file(secrets_path)
 missing = []
 
 for account in settings.enabled_accounts():
@@ -64,7 +73,7 @@ if "line" in channels:
         missing.append("LINE_CHANNEL_ACCESS_TOKEN")
     line_cfg = settings.digest.get("line", {})
     if line_cfg.get("enabled") and not (env.get("LINE_TARGET_USER_ID") or line_cfg.get("target_user_id")):
-        missing.append("LINE_TARGET_USER_ID (or digest.line.target_user_id in config/settings.yaml)")
+        missing.append("LINE_TARGET_USER_ID (or digest.line.target_user_id in config)")
 
 if missing:
     print("[ERROR] Missing required secrets:")
@@ -74,7 +83,7 @@ if missing:
 PY
 
 echo "[INFO] Running dry-run..."
-python -m src.main dry-run --env-file "${SECRETS_FILE}"
+python -m src.main --config "${CONFIG_FILE}" --env-file "${SECRETS_FILE}" dry-run
 
 echo "[DONE] Dry-run completed."
-echo "Run production mode with: python -m src.main run --env-file ${SECRETS_FILE}"
+echo "Run production mode with: python -m src.main --config ${CONFIG_FILE} --env-file ${SECRETS_FILE} run"

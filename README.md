@@ -2,120 +2,156 @@
 
 多帳號 Gmail 自動摘要工具（預設時區：Asia/Taipei）。
 
-## 快速開始（貼 token + 一個 command）
+## 1) 目標使用情境
+- 自動整理多帳號 Gmail：重要信件、電子報、已搬移、疑似垃圾
+- 可在本機（macOS）用 launchd 排程
+- 可用 GitHub Actions 雲端排程
 
-1. 建立個人 secrets 檔案（repo 外）
+## 2) 安裝需求
+- macOS（本機排程功能）
+- Python 3.11+
+- Google OAuth 憑證（每個帳號一組 Refresh Token）
+
+## 3) 一鍵初始化（建議）
+在 repo 根目錄執行：
 
 ```bash
-mkdir -p ~/.config/daily-summarize
-cp config/secrets.example.env ~/.config/daily-summarize/secrets.env
-chmod 600 ~/.config/daily-summarize/secrets.env
+./init-user-config.command
+./init-secrets.command
 ```
 
-2. 編輯 `~/.config/daily-summarize/secrets.env`，填入你自己的 token
+說明：
+- `init-user-config.command` 會建立 `~/.config/daily-summarize/settings.yaml`
+- `init-secrets.command` 會建立 `~/.config/daily-summarize/secrets.env` 並自動 `chmod 600`
 
-3. 一鍵檢查並執行 dry-run
+## 4) Token 與必要參數如何取得
+
+### 4.1 Gmail（必要）
+每個帳號都需要：
+- `{PREFIX}_GMAIL_CLIENT_ID`
+- `{PREFIX}_GMAIL_CLIENT_SECRET`
+- `{PREFIX}_GMAIL_REFRESH_TOKEN`
+
+建議流程：
+1. 到 Google Cloud Console 建立/選擇 Project。
+2. 啟用 Gmail API。
+3. 設定 OAuth consent screen（至少完成可測試狀態）。
+4. 建立 OAuth Client（Application type 選 `Desktop app`）。
+5. 將 Client ID / Client Secret 填入 `~/.config/daily-summarize/secrets.env`。
+6. 取得 Refresh Token：
+
+```bash
+./get-refresh-token.command work your-work@gmail.com
+./get-refresh-token.command personal your-personal@gmail.com
+```
+
+### 4.2 LINE（選用）
+當 `settings.yaml` 的 `digest.channels` 包含 `line` 時需要：
+- `LINE_CHANNEL_ACCESS_TOKEN`
+- `LINE_TARGET_USER_ID`
+
+常見流程：
+1. 在 LINE Developers 建立 Messaging API channel。
+2. 取得 Channel access token。
+3. 將 Bot 加為好友，從 webhook event payload 取得 userId（或以你既有方式取得）。
+4. 寫入 `secrets.env`。
+
+### 4.3 Slack（選用）
+當 `settings.yaml` 的 `digest.channels` 包含 `slack_bot` 時需要：
+- `SLACK_BOT_TOKEN`
+- `digest.slack.channel_id`（在 `settings.yaml`）
+
+常見流程：
+1. 建立 Slack App。
+2. 設定 Bot Token scopes（至少 `chat:write`）。
+3. 安裝 App 到 workspace 取得 Bot token。
+4. 填入 `secrets.env`，並在 `settings.yaml` 放入 channel id。
+
+## 5) 快速驗證（Dry Run）
 
 ```bash
 bash scripts/quickstart.sh
 ```
 
-`quickstart.sh` 會自動做以下動作：
-- 建立 `.venv` 並安裝依賴
-- 檢查 `~/.config/daily-summarize/secrets.env` 權限是否為 `600`
-- 檢查必要 env key 是否完整
-- 執行 `python -m src.main dry-run`
+`quickstart.sh` 會：
+- 建立 `.venv` 與安裝依賴
+- 檢查 `settings.yaml` 與 `secrets.env` 是否存在
+- 檢查 `secrets.env` 權限是否為 `600`
+- 檢查必要 env key 是否齊全
+- 執行 `dry-run`
 
-## 正式執行
-
-```bash
-python -m src.main run --env-file ~/.config/daily-summarize/secrets.env
-```
-
-## 本機每日自動排程（macOS）
-
-先完成一次 quickstart（建立 `.venv` + 驗證 secrets）：
+## 6) 正式執行
 
 ```bash
-bash scripts/quickstart.sh
+python -m src.main \
+  --config ~/.config/daily-summarize/settings.yaml \
+  --env-file ~/.config/daily-summarize/secrets.env \
+  run
 ```
 
-啟動排程（依 `config/settings.yaml` 的 `run_times`）：
+## 7) 常用指令
+
+```bash
+python -m src.main --config ~/.config/daily-summarize/settings.yaml --env-file ~/.config/daily-summarize/secrets.env dry-run
+python -m src.main --config ~/.config/daily-summarize/settings.yaml --env-file ~/.config/daily-summarize/secrets.env dry-run --hours 24
+python -m src.main --config ~/.config/daily-summarize/settings.yaml --env-file ~/.config/daily-summarize/secrets.env backfill --days 7
+python -m src.main --config ~/.config/daily-summarize/settings.yaml config-ui
+```
+
+## 8) 本機每日排程（macOS）
+
+啟動：
 
 ```bash
 bash scripts/local_schedule.sh start
 ```
 
-停止排程：
+停止：
 
 ```bash
 bash scripts/local_schedule.sh stop
 ```
 
-檢查狀態：
+狀態：
 
 ```bash
 bash scripts/local_schedule.sh status
 ```
 
-立即手動跑一次（不等排程）：
+立即手動跑一次：
 
 ```bash
 bash scripts/local_schedule.sh run-now
 ```
 
-也可以直接雙擊 repo 根目錄：
+也可直接雙擊：
 - `start-local-schedule.command`
 - `stop-local-schedule.command`
 - `status-local-schedule.command`
+- `open-config-ui.command`
 
-預設時間為台灣時間 `12:00` 與 `20:00`（來自 `config/settings.yaml` 的 `run_times`）。
+## 9) GitHub Actions 排程
+- `.github/workflows/daily-email-digest.yml`：正式排程 job
+- `.github/workflows/ci.yml`：PR / push 時跑 unit tests
 
-## 設定檔
+若要在 GitHub 上跑 `daily-email-digest.yml`，請在 Repository Secrets 設定：
+- `WORK_GMAIL_CLIENT_ID`
+- `WORK_GMAIL_CLIENT_SECRET`
+- `WORK_GMAIL_REFRESH_TOKEN`
+- `PERSONAL_GMAIL_CLIENT_ID`
+- `PERSONAL_GMAIL_CLIENT_SECRET`
+- `PERSONAL_GMAIL_REFRESH_TOKEN`
+- （選用）`SLACK_BOT_TOKEN`
+- （選用）`LINE_CHANNEL_ACCESS_TOKEN`
+- （選用）`LINE_TARGET_USER_ID`
 
-主要設定在 `config/settings.yaml`。
+## 10) 安全建議
+- 不要把真實 token 放進 repo。
+- `~/.config/daily-summarize/secrets.env` 權限固定 `600`。
+- 對外通知建議使用 `digest.redaction_mode: strict`。
+- 詳細流程請看 `SECURITY.md`。
 
-重點：
-- `digest.redaction_mode: strict`（預設）會讓 Slack/LINE 只收到安全摘要，不含主旨與內容。
-- `accounts[]` 可設定多帳號，每個帳號需要對應的 `{PREFIX}_GMAIL_*` secrets。
-- `move_mode` 可切換 `conservative / moderate / aggressive`，影響搬移敏感度。
-- `scoring` 可調整 `keep_threshold / move_threshold / newsletter_threshold`，用來校準重要信件與電子報分流。
-
-## Gmail OAuth 登入（互動式）
-
-若你要透過互動流程取得 refresh token：
-
-```bash
-python -m src.main auth login --account work --email your-work@gmail.com
-```
-
-預設會寫入 `~/.config/daily-summarize/secrets.env`。
-
-## 其他指令
-
-```bash
-python -m src.main dry-run --env-file ~/.config/daily-summarize/secrets.env
-python -m src.main dry-run --hours 24 --env-file ~/.config/daily-summarize/secrets.env
-python -m src.main run --hours 24 --env-file ~/.config/daily-summarize/secrets.env
-python -m src.main backfill --days 7 --env-file ~/.config/daily-summarize/secrets.env
-python -m src.main config-ui
-```
-
-## 一鍵開啟設定頁（可雙擊）
-
-macOS 可直接雙擊 repo 根目錄的 `open-config-ui.command`，會自動：
-- 啟動 `config-ui`（若尚未啟動）
-- 打開 `http://127.0.0.1:8765`
-- 你在頁面新增/移除白名單與黑名單（排除重要）後，會直接寫入 `config/settings.yaml`，下次 `dry-run/run` 立即生效。
-
-## 輸出
-
+## 11) 輸出位置
 - 報表：`data/reports/*.json`, `data/reports/*.md`
 - 狀態：`data/state/*.json`
-- 日誌：`logs/app.log`
-
-## 安全建議
-
-- 不要把真實 token 放進 repo。
-- `secrets.env` 請固定 `chmod 600`。
-- 詳細安全流程請看 `SECURITY.md`。
+- 日誌：`logs/*.log`

@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 .env
 .DS_Store
+config/settings.local.yaml
+config/secrets.local.env
+*.local.env
 data/reports/*.json
 data/reports/*.md
 data/state/*.json

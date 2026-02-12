@@ -2,7 +2,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SECRETS_FILE="${HOME}/.config/daily-summarize/secrets.env"
+CONFIG_FILE="${DAILY_SUMMARIZE_CONFIG:-${HOME}/.config/daily-summarize/settings.yaml}"
+SECRETS_FILE="${DAILY_SUMMARIZE_ENV_FILE:-${HOME}/.config/daily-summarize/secrets.env}"
 LOG_FILE="${REPO_ROOT}/logs/local-scheduler.log"
 
 cd "${REPO_ROOT}"
@@ -15,6 +16,11 @@ fi
 
 if [[ ! -x ".venv/bin/python" ]]; then
   echo "[ERROR] .venv not found. Run: bash scripts/quickstart.sh" | tee -a "${LOG_FILE}"
+  exit 1
+fi
+
+if [[ ! -f "${CONFIG_FILE}" ]]; then
+  echo "[ERROR] Missing config file: ${CONFIG_FILE}" | tee -a "${LOG_FILE}"
   exit 1
 fi
 
@@ -34,6 +40,7 @@ source .venv/bin/activate
 
 {
   echo "[INFO] ===== $(date '+%Y-%m-%d %H:%M:%S %z') run start ====="
-  python -m src.main run --env-file "${SECRETS_FILE}"
+  echo "[INFO] config=${CONFIG_FILE}"
+  python -m src.main --config "${CONFIG_FILE}" --env-file "${SECRETS_FILE}" run
   echo "[INFO] ===== $(date '+%Y-%m-%d %H:%M:%S %z') run end ====="
 } >> "${LOG_FILE}" 2>&1

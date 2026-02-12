@@ -5,19 +5,23 @@ LABEL="com.daily-summarize.digest"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PLIST_PATH="${HOME}/Library/LaunchAgents/${LABEL}.plist"
 RUN_SCRIPT="${REPO_ROOT}/scripts/run_daily_digest.sh"
-SECRETS_FILE="${HOME}/.config/daily-summarize/secrets.env"
+CONFIG_FILE="${DAILY_SUMMARIZE_CONFIG:-${HOME}/.config/daily-summarize/settings.yaml}"
+SECRETS_FILE="${DAILY_SUMMARIZE_ENV_FILE:-${HOME}/.config/daily-summarize/secrets.env}"
 
 RUN_TIMES=()
 
 read_run_times() {
   local output
-  output="$(cd "${REPO_ROOT}" && python3 - <<'PY'
+  output="$(DAILY_SUMMARIZE_CONFIG="${CONFIG_FILE}" python3 - <<'PY'
+import os
 import re
+
 from src.config import load_settings
 
-settings = load_settings("config/settings.yaml")
+config_path = os.path.expanduser(os.environ["DAILY_SUMMARIZE_CONFIG"])
+settings = load_settings(config_path)
 if not settings.run_times:
-    raise SystemExit("run_times is empty in config/settings.yaml")
+    raise SystemExit("run_times is empty in config file")
 
 for value in settings.run_times:
     text = str(value).strip()
@@ -75,6 +79,11 @@ check_prerequisites() {
     exit 1
   fi
 
+  if [[ ! -f "${CONFIG_FILE}" ]]; then
+    echo "[ERROR] Missing config file: ${CONFIG_FILE}"
+    exit 1
+  fi
+
   if [[ ! -f "${SECRETS_FILE}" ]]; then
     echo "[ERROR] Missing secrets file: ${SECRETS_FILE}"
     exit 1
@@ -93,7 +102,7 @@ write_plist() {
   mkdir -p "${HOME}/Library/LaunchAgents" "${REPO_ROOT}/logs"
   read_run_times
 
-  cat > "${PLIST_PATH}" <<EOF
+  cat > "${PLIST_PATH}" <<EOF_PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -111,6 +120,10 @@ write_plist() {
   <dict>
     <key>TZ</key>
     <string>Asia/Taipei</string>
+    <key>DAILY_SUMMARIZE_CONFIG</key>
+    <string>${CONFIG_FILE}</string>
+    <key>DAILY_SUMMARIZE_ENV_FILE</key>
+    <string>${SECRETS_FILE}</string>
   </dict>
   <key>RunAtLoad</key>
   <false/>
@@ -124,7 +137,7 @@ $(build_schedule_xml)
   <string>${REPO_ROOT}/logs/launchd.err.log</string>
 </dict>
 </plist>
-EOF
+EOF_PLIST
 }
 
 start_schedule() {
@@ -135,6 +148,7 @@ start_schedule() {
   launchctl load "${PLIST_PATH}"
   echo "[OK] Local schedule started."
   echo "[INFO] Plist: ${PLIST_PATH}"
+  echo "[INFO] Config: ${CONFIG_FILE}"
   echo "[INFO] Times (Asia/Taipei): ${RUN_TIMES[*]}"
 }
 
@@ -159,12 +173,13 @@ status_schedule() {
   else
     echo "[INFO] Plist not found: ${PLIST_PATH}"
   fi
+  echo "[INFO] Config: ${CONFIG_FILE}"
   echo "[INFO] Times (Asia/Taipei): ${RUN_TIMES[*]}"
 }
 
 run_now() {
   check_prerequisites
-  exec "${RUN_SCRIPT}"
+  DAILY_SUMMARIZE_CONFIG="${CONFIG_FILE}" DAILY_SUMMARIZE_ENV_FILE="${SECRETS_FILE}" exec "${RUN_SCRIPT}"
 }
 
 usage() {

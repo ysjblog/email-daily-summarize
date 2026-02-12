@@ -5,8 +5,15 @@ REPO_ROOT="$(cd -- "$(dirname -- "$0")" && pwd)"
 HOST="${1:-127.0.0.1}"
 PORT="${2:-8765}"
 URL="http://${HOST}:${PORT}"
+CONFIG_FILE="${DAILY_SUMMARIZE_CONFIG:-${HOME}/.config/daily-summarize/settings.yaml}"
 
 cd "$REPO_ROOT"
+
+if [[ ! -f "${CONFIG_FILE}" ]]; then
+  echo "[ERROR] Missing config file: ${CONFIG_FILE}"
+  echo "Run ./init-user-config.command first."
+  exit 1
+fi
 
 if command -v lsof >/dev/null 2>&1 && lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
   echo "[INFO] Config UI is already running: ${URL}"
@@ -28,10 +35,11 @@ if [[ -z "${PYTHON_BIN}" ]]; then
 fi
 
 echo "[INFO] Starting Config UI at ${URL}"
+echo "[INFO] Using config: ${CONFIG_FILE}"
 echo "[INFO] Press Ctrl+C to stop."
 
 if command -v open >/dev/null 2>&1; then
   (sleep 1; open "${URL}" >/dev/null 2>&1 || true) &
 fi
 
-exec "${PYTHON_BIN}" -m src.main config-ui --host "${HOST}" --port "${PORT}"
+exec "${PYTHON_BIN}" -m src.main --config "${CONFIG_FILE}" config-ui --host "${HOST}" --port "${PORT}"
