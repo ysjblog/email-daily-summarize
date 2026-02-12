@@ -27,7 +27,6 @@ spam_scan:
 digest:
   channels:
     - gmail
-    - slack_bot
     - line
   gmail:
     to: "your-address@gmail.com"
@@ -35,7 +34,6 @@ digest:
     channel_id: "C0123456789"
   line:
     enabled: true
-    target_user_id: "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 accounts:
   - id: work

@@ -373,7 +373,8 @@ def deliver_digest(
 
     if "line" in channels:
         line_cfg = settings.digest.get("line", {})
-        target_user_id = line_cfg.get("target_user_id") or os.getenv("LINE_TARGET_USER_ID")
+        # Prefer .env for user ID to avoid leaking identifiers into tracked config files.
+        target_user_id = os.getenv("LINE_TARGET_USER_ID") or line_cfg.get("target_user_id")
         if line_cfg.get("enabled") and target_user_id:
             try:
                 LineNotifier().send(user_id=target_user_id, text=line_digest)
