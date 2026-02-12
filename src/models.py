@@ -24,6 +24,7 @@ class MoveDecision:
     subject: str
     sender: str
     reason: str
+    bucket: str = "low_priority"
 
 
 @dataclass(slots=True)

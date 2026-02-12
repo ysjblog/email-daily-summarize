@@ -20,13 +20,11 @@ priority_keywords:
 - security alert
 newsletter_sources:
 - newsletter@substack.com
-- '@news.company.com'
-- support@johntool.com
 spam_scan:
   enabled: true
   action: report_only
 digest:
-  redaction_mode: strict
+  redaction_mode: balanced
   channels:
   - gmail
   - line
@@ -53,5 +51,13 @@ accounts:
     newsletter_sources:
     - newsletter@substack.com
     - service@vocus.cc
-exclude_important_senders:
-- donotreply@zeczec.com
+    - support@johntool.com
+    - service@tnf.org.tw
+exclude_important_senders: []
+exclude_important_subject_keywords: []
+force_newsletter_senders: []
+force_newsletter_subject_keywords: []
+scoring:
+  keep_threshold: 3
+  move_threshold: -3
+  newsletter_threshold: 3

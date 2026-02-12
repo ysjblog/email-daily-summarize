@@ -39,6 +39,8 @@ python -m src.main run --env-file ~/.config/daily-summarize/secrets.env
 重點：
 - `digest.redaction_mode: strict`（預設）會讓 Slack/LINE 只收到安全摘要，不含主旨與內容。
 - `accounts[]` 可設定多帳號，每個帳號需要對應的 `{PREFIX}_GMAIL_*` secrets。
+- `move_mode` 可切換 `conservative / moderate / aggressive`，影響搬移敏感度。
+- `scoring` 可調整 `keep_threshold / move_threshold / newsletter_threshold`，用來校準重要信件與電子報分流。
 
 ## Gmail OAuth 登入（互動式）
 
@@ -59,6 +61,13 @@ python -m src.main run --hours 24 --env-file ~/.config/daily-summarize/secrets.e
 python -m src.main backfill --days 7 --env-file ~/.config/daily-summarize/secrets.env
 python -m src.main config-ui
 ```
+
+## 一鍵開啟設定頁（可雙擊）
+
+macOS 可直接雙擊 repo 根目錄的 `open-config-ui.command`，會自動：
+- 啟動 `config-ui`（若尚未啟動）
+- 打開 `http://127.0.0.1:8765`
+- 你在頁面新增/移除白名單與黑名單（排除重要）後，會直接寫入 `config/settings.yaml`，下次 `dry-run/run` 立即生效。
 
 ## 輸出
 

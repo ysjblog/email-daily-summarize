@@ -13,69 +13,42 @@ def build_combined_digest(
     account_reports: list[dict[str, Any]],
     failed_accounts: list[dict[str, str]],
 ) -> str:
-    lines: list[str] = [f"# Email Digest {run_id}", ""]
+    lines: list[str] = [f"# **Email Digest** `{run_id}`", ""]
 
     if not account_reports:
-        lines.append("- No successful account runs.")
+        lines.append("- _No successful account runs._")
         lines.append("")
+    else:
+        section_defs = [
+            ("1) **重要信件**", "important", _render_markdown_important_item, 10),
+            ("2) **電子報摘要**", "newsletters", _render_markdown_newsletter_item, 10),
+            ("3) **已搬移信件**", "moved", _render_markdown_moved_item, 20),
+            ("4) **疑似垃圾但重要**", "spam_suspects", _render_markdown_spam_item, 20),
+        ]
 
-    for account in account_reports:
-        name = account.get("display_name") or account.get("account_id", "unknown")
-        lines.append(f"## Account: {name} ({account.get('account_id', 'unknown')})")
-        lines.append("")
+        for title, key, renderer, limit in section_defs:
+            total = sum(len(account.get(key, [])) for account in account_reports)
+            lines.append(f"## {title} _({total})_")
+            lines.append("")
 
-        important = account.get("important", [])
-        moved = account.get("moved", [])
-        spam_findings = account.get("spam_suspects", [])
-        newsletters = account.get("newsletters", [])
-
-        lines.append("### 1) Important Emails")
-        if important:
-            for item in important[:10]:
-                sender = item.get("sender", "unknown sender")
-                subject = item.get("subject", "(no subject)")
-                lines.append(f"- {sender} | {subject}")
-        else:
-            lines.append("- None")
-        lines.append("")
-
-        lines.append("### 2) Moved Emails")
-        if moved:
-            for item in moved[:20]:
-                lines.append(f"- {item['subject']} | {item['sender']} ({item['reason']})")
-        else:
-            lines.append("- None")
-        lines.append("")
-
-        lines.append("### 3) Spam Possible Important Emails")
-        if spam_findings:
-            for finding in spam_findings:
-                tier = "High" if finding.get("score", 0) >= 70 else "Review"
-                reasons = ", ".join(finding.get("reasons", []))
-                lines.append(
-                    f"- [{tier}] {finding.get('subject', '')} | {finding.get('sender', '')} "
-                    f"| score={finding.get('score', 0)} | {reasons}"
+            for account in account_reports:
+                lines.extend(
+                    _render_markdown_account_section(
+                        account=account,
+                        key=key,
+                        renderer=renderer,
+                        max_items=limit,
+                    )
                 )
-        else:
-            lines.append("- None")
-        lines.append("")
+            lines.append("---")
+            lines.append("")
 
-        lines.append("### 4) Locked Newsletter Highlights")
-        if newsletters:
-            for summary in newsletters:
-                lines.append(f"- {summary.get('subject', '')} ({summary.get('source', '')})")
-                for bullet in summary.get("bullets", [])[:5]:
-                    lines.append(f"  - {bullet}")
-        else:
-            lines.append("- None")
-        lines.append("")
-
-    lines.append("## Failed Accounts")
+    lines.append("## **Failed Accounts**")
     if failed_accounts:
         for failed in failed_accounts:
-            lines.append(f"- {failed.get('account_id')}: {failed.get('error')}")
+            lines.append(f"- **{failed.get('account_id')}**: _{failed.get('error')}_")
     else:
-        lines.append("- None")
+        lines.append("- _None_")
 
     return "\n".join(lines)
 
@@ -87,47 +60,35 @@ def build_line_digest(run_id: str, account_reports: list[dict[str, Any]], failed
         lines.extend(["", "無成功帳號。"])
     else:
         lines.append("")
-        for account in account_reports:
-            name = account.get("display_name") or account.get("account_id", "unknown")
-            important = account.get("important", [])
-            moved = account.get("moved", [])
-            spam_suspects = account.get("spam_suspects", [])
-            newsletters = account.get("newsletters", [])
+        section_defs = [
+            ("1) 重要信件", "important", _render_important_item, None),
+            ("2) 電子報摘要", "newsletters", _render_newsletter_item, LINE_SECTION_LIMIT),
+            (
+                "3) 已搬移摘要",
+                "moved",
+                lambda item: [f"- {item.get('sender', 'unknown sender')} | {item.get('subject', '(no subject)')}"],
+                LINE_SECTION_LIMIT,
+            ),
+            (
+                "4) 疑似垃圾但重要",
+                "spam_suspects",
+                lambda item: [f"- {item.get('sender', 'unknown sender')} | {item.get('subject', '(no subject)')}"],
+                LINE_SECTION_LIMIT,
+            ),
+        ]
 
-            lines.append(f"【{name}】")
-            lines.extend(
-                _render_line_section(
-                    title="1) 重要信件主旨",
-                    items=important,
-                    renderer=_render_important_item,
-                    max_items=None,
+        for title, key, renderer, max_items in section_defs:
+            lines.append(f"【{title}（依帳號）】")
+            for account in account_reports:
+                lines.extend(
+                    _render_line_account_section(
+                        account=account,
+                        key=key,
+                        renderer=renderer,
+                        max_items=max_items,
+                    )
                 )
-            )
-            lines.extend(
-                _render_line_section(
-                    title="2) 已搬移摘要",
-                    items=moved,
-                    renderer=lambda item: [
-                        f"- {item.get('sender', 'unknown sender')} | {item.get('subject', '(no subject)')}"
-                    ],
-                )
-            )
-            lines.extend(
-                _render_line_section(
-                    title="3) 疑似垃圾但重要",
-                    items=spam_suspects,
-                    renderer=lambda item: [
-                        f"- {item.get('sender', 'unknown sender')} | {item.get('subject', '(no subject)')}"
-                    ],
-                )
-            )
-            lines.extend(
-                _render_line_section(
-                    title="4) 電子報摘要",
-                    items=newsletters,
-                    renderer=_render_newsletter_item,
-                )
-            )
+            lines.append("")
 
     if failed_accounts:
         lines.append("失敗帳號:")
@@ -141,6 +102,87 @@ def build_line_digest(run_id: str, account_reports: list[dict[str, Any]], failed
 
     digest = "\n".join(lines).strip()
     return _truncate_line_digest(digest, LINE_MAX_CHARS)
+
+
+def _render_markdown_account_section(
+    account: dict[str, Any],
+    key: str,
+    renderer: Callable[[dict[str, Any]], list[str]],
+    max_items: int,
+) -> list[str]:
+    name = account.get("display_name") or account.get("account_id", "unknown")
+    account_id = account.get("account_id", "unknown")
+    items = account.get(key, [])
+    shown = items[:max_items]
+
+    lines = [f"### **{name}** (`{account_id}`)"]
+    lines.append("")
+    if not shown:
+        lines.append("- _無_")
+        lines.append("")
+        return lines
+
+    for idx, item in enumerate(shown):
+        lines.extend(renderer(item))
+        if idx < len(shown) - 1:
+            lines.append("")
+            lines.append("---")
+            lines.append("")
+
+    remaining = len(items) - len(shown)
+    if remaining > 0:
+        lines.append("")
+        lines.append(f"- _...還有 {remaining} 筆_")
+
+    lines.append("")
+    return lines
+
+
+def _render_markdown_important_item(item: dict[str, Any]) -> list[str]:
+    sender = item.get("sender", "unknown sender")
+    subject = item.get("subject", "(no subject)")
+    snippet = _truncate_text(str(item.get("snippet", "")).strip(), 120)
+    rendered_snippet = snippet if snippet else "(無)"
+    return [
+        f"- **寄件人**：`{sender}`",
+        f"  **主旨**：**{subject}**",
+        f"  _摘要_：{rendered_snippet}",
+    ]
+
+
+def _render_markdown_newsletter_item(item: dict[str, Any]) -> list[str]:
+    source = item.get("source", "unknown source")
+    subject = item.get("subject", "(no subject)")
+    bullets = item.get("bullets", [])
+    summary = _truncate_text(str(bullets[0]).strip(), 120) if bullets else "(無摘要)"
+    return [
+        f"- **寄件人**：`{source}`",
+        f"  **主旨**：**{subject}**",
+        f"  _摘要_：{summary}",
+    ]
+
+
+def _render_markdown_moved_item(item: dict[str, Any]) -> list[str]:
+    sender = item.get("sender", "unknown sender")
+    subject = item.get("subject", "(no subject)")
+    reason = item.get("reason", "")
+    return [
+        f"- **寄件人**：`{sender}`",
+        f"  **主旨**：**{subject}**",
+        f"  _原因_：{reason or '(無)'}",
+    ]
+
+
+def _render_markdown_spam_item(item: dict[str, Any]) -> list[str]:
+    sender = item.get("sender", "unknown sender")
+    subject = item.get("subject", "(no subject)")
+    score = item.get("score", 0)
+    reasons = ", ".join(item.get("reasons", []))
+    return [
+        f"- **寄件人**：`{sender}`",
+        f"  **主旨**：**{subject}**",
+        f"  _分數_：{score} | _原因_：{reasons or '(無)'}",
+    ]
 
 
 def build_external_safe_digest(
@@ -183,6 +225,34 @@ def _render_line_section(
         return lines
 
     sliced = items if max_items is None else items[:max_items]
+    for item in sliced:
+        lines.extend(renderer(item))
+
+    remaining = len(items) - shown
+    if remaining > 0:
+        lines.append(f"- ...還有 {remaining} 筆")
+
+    lines.append("")
+    return lines
+
+
+def _render_line_account_section(
+    account: dict[str, Any],
+    key: str,
+    renderer: Callable[[dict[str, Any]], list[str]],
+    max_items: int | None,
+) -> list[str]:
+    name = account.get("display_name") or account.get("account_id", "unknown")
+    account_id = account.get("account_id", "unknown")
+    items = account.get(key, [])
+    shown = len(items) if max_items is None else min(len(items), max_items)
+    sliced = items if max_items is None else items[:max_items]
+
+    lines = [f"＜{name} ({account_id})＞ ({shown}/{len(items)})"]
+    if not items:
+        lines.extend(["- 無", ""])
+        return lines
+
     for item in sliced:
         lines.extend(renderer(item))
 

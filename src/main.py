@@ -266,6 +266,7 @@ def execute_account(
     report.important = classified.important
 
     archive_label_id = gmail.get_or_create_label_id(settings.archive_label)
+    newsletter_label_id: str | None = None
 
     moved_rows: list[dict] = []
     for decision in classified.move_candidates:
@@ -274,12 +275,18 @@ def execute_account(
             "subject": decision.subject,
             "sender": decision.sender,
             "reason": decision.reason,
+            "bucket": decision.bucket,
         }
         moved_rows.append(row)
         if not dry_run:
+            target_label_id = archive_label_id
+            if decision.bucket == "newsletter":
+                if newsletter_label_id is None:
+                    newsletter_label_id = gmail.get_or_create_label_id(settings.newsletter_label)
+                target_label_id = newsletter_label_id
             gmail.modify_labels(
                 decision.message_id,
-                add_label_ids=[archive_label_id],
+                add_label_ids=[target_label_id],
                 remove_label_ids=["INBOX"],
             )
 
@@ -290,7 +297,10 @@ def execute_account(
         spam_findings = inspect_spam_messages(spam_messages, settings, trusted_senders=interaction_senders)
     report.spam_suspects = [asdict(item) for item in spam_findings]
 
-    newsletters = summarize_newsletters(inbox_messages, settings)
+    newsletter_candidates = [
+        msg for msg in inbox_messages if msg.id in classified.newsletter_candidate_ids
+    ]
+    newsletters = summarize_newsletters(newsletter_candidates, settings, preclassified=True)
     report.newsletters = [asdict(item) for item in newsletters]
 
     report.finished_at = utc_now_iso()

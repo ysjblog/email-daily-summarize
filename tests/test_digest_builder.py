@@ -4,6 +4,33 @@ from src.digest_builder import build_combined_digest, build_external_safe_digest
 
 
 class DigestBuilderTests(unittest.TestCase):
+    def test_build_combined_digest_groups_sections_by_category_then_account(self) -> None:
+        work_report = {
+            "account_id": "work",
+            "display_name": "Work Mail",
+            "important": [{"subject": "Work Important", "sender": "w@example.com", "snippet": "w"}],
+            "moved": [],
+            "spam_suspects": [],
+            "newsletters": [{"subject": "Work News", "source": "news@work.com", "bullets": ["w"]}],
+        }
+        personal_report = {
+            "account_id": "personal",
+            "display_name": "Personal Mail",
+            "important": [{"subject": "Personal Important", "sender": "p@example.com", "snippet": "p"}],
+            "moved": [],
+            "spam_suspects": [],
+            "newsletters": [{"subject": "Personal News", "source": "news@personal.com", "bullets": ["p"]}],
+        }
+
+        digest = build_combined_digest("2026-02-12-1300", [work_report, personal_report], [])
+
+        important_section = digest.index("## 1) **重要信件**")
+        newsletter_section = digest.index("## 2) **電子報摘要**")
+        self.assertLess(important_section, newsletter_section)
+        self.assertIn("### **Work Mail** (`work`)", digest)
+        self.assertIn("### **Personal Mail** (`personal`)", digest)
+        self.assertNotIn("## Account:", digest)
+
     def test_build_line_digest_renders_all_sections_with_limits(self) -> None:
         account_report = {
             "account_id": "work",
@@ -21,10 +48,12 @@ class DigestBuilderTests(unittest.TestCase):
 
         digest = build_line_digest("2026-02-12-1300", [account_report], [])
 
-        self.assertIn("1) 重要信件主旨 (5/5)", digest)
-        self.assertIn("2) 已搬移摘要 (3/4)", digest)
-        self.assertIn("3) 疑似垃圾但重要 (3/4)", digest)
-        self.assertIn("4) 電子報摘要 (3/4)", digest)
+        self.assertIn("【1) 重要信件（依帳號）】", digest)
+        self.assertIn("【2) 電子報摘要（依帳號）】", digest)
+        self.assertIn("【3) 已搬移摘要（依帳號）】", digest)
+        self.assertIn("【4) 疑似垃圾但重要（依帳號）】", digest)
+        self.assertIn("＜Work Mail (work)＞ (5/5)", digest)
+        self.assertIn("＜Work Mail (work)＞ (3/4)", digest)
         self.assertIn("imp5@mail.com | Important 5", digest)
         self.assertIn("摘要: Important snippet 1", digest)
         self.assertIn("moved@mail.com | Moved 1", digest)
@@ -68,7 +97,10 @@ class DigestBuilderTests(unittest.TestCase):
 
         digest = build_combined_digest("2026-02-12-1306", [account_report], [])
 
-        self.assertIn("- boss@example.com | Top Secret", digest)
+        self.assertIn("## 1) **重要信件**", digest)
+        self.assertIn("### **Work Mail** (`work`)", digest)
+        self.assertIn("**寄件人**：`boss@example.com`", digest)
+        self.assertIn("**主旨**：**Top Secret**", digest)
         self.assertNotIn("priority keyword", digest)
 
     def test_build_line_digest_truncates_to_line_limit(self) -> None:
