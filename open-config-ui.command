@@ -5,7 +5,7 @@ REPO_ROOT="$(cd -- "$(dirname -- "$0")" && pwd)"
 HOST="${1:-127.0.0.1}"
 PORT="${2:-8765}"
 URL="http://${HOST}:${PORT}"
-CONFIG_FILE="${DAILY_SUMMARIZE_CONFIG:-${HOME}/.config/daily-summarize/settings.yaml}"
+CONFIG_FILE="${DAILY_SUMMARIZE_CONFIG:-${REPO_ROOT}/config/settings.local.yaml}"
 
 cd "$REPO_ROOT"
 

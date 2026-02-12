@@ -2,8 +2,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "$0")" && pwd)"
-CONFIG_FILE="${DAILY_SUMMARIZE_CONFIG:-${HOME}/.config/daily-summarize/settings.yaml}"
-SECRETS_FILE="${DAILY_SUMMARIZE_ENV_FILE:-${HOME}/.config/daily-summarize/secrets.env}"
+CONFIG_FILE="${DAILY_SUMMARIZE_CONFIG:-${REPO_ROOT}/config/settings.local.yaml}"
+SECRETS_FILE="${DAILY_SUMMARIZE_ENV_FILE:-${REPO_ROOT}/config/secrets.local.env}"
 
 if [[ ! -f "${CONFIG_FILE}" ]]; then
   echo "[ERROR] Missing config file: ${CONFIG_FILE}"

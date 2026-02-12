@@ -5,8 +5,8 @@ LABEL="com.daily-summarize.digest"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PLIST_PATH="${HOME}/Library/LaunchAgents/${LABEL}.plist"
 RUN_SCRIPT="${REPO_ROOT}/scripts/run_daily_digest.sh"
-CONFIG_FILE="${DAILY_SUMMARIZE_CONFIG:-${HOME}/.config/daily-summarize/settings.yaml}"
-SECRETS_FILE="${DAILY_SUMMARIZE_ENV_FILE:-${HOME}/.config/daily-summarize/secrets.env}"
+CONFIG_FILE="${DAILY_SUMMARIZE_CONFIG:-${REPO_ROOT}/config/settings.local.yaml}"
+SECRETS_FILE="${DAILY_SUMMARIZE_ENV_FILE:-${REPO_ROOT}/config/secrets.local.env}"
 
 RUN_TIMES=()
 
