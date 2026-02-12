@@ -12,6 +12,9 @@
 - Python 3.11+
 - Google OAuth 憑證（每個帳號一組 Refresh Token）
 
+> **⚠️ 注意事項：**
+> 在執行 `get-refresh-token.command` 之前，請**務必關閉**已在編輯器中打開的 `secrets.local.env` 檔案，或確保該檔案未被鎖定。認證成功後，Token 會自動寫入該檔案，若檔案被編輯器佔用覆寫，會導致 Token 清空。
+
 ## 3) 一鍵初始化（建議）
 在 repo 根目錄執行：
 
@@ -21,8 +24,14 @@
 ```
 
 說明：
-- `init-user-config.command` 會建立 `~/.config/daily-summarize/settings.yaml`
-- `init-secrets.command` 會建立 `~/.config/daily-summarize/secrets.env` 並自動 `chmod 600`
+- `init-user-config.command` 會建立 `config/settings.local.yaml`
+- `init-secrets.command` 會建立 `config/secrets.local.env` 並自動 `chmod 600`
+
+> **💡 如何在終端機切換目錄？**
+> 1. 打開終端機（Terminal）。
+> 2. 輸入 `cd `（注意後面有空白）。
+> 3. 將這個專案資料夾直接**拖曳**到終端機視窗內。
+> 4. 按下 Enter，就會進入專案目錄了。
 
 ## 4) Token 與必要參數如何取得
 
@@ -37,8 +46,8 @@
 2. 啟用 Gmail API。
 3. 設定 OAuth consent screen（至少完成可測試狀態）。
 4. 建立 OAuth Client（Application type 選 `Desktop app`）。
-5. 將 Client ID / Client Secret 填入 `~/.config/daily-summarize/secrets.env`。
-6. 取得 Refresh Token：
+5. 將 Client ID / Client Secret 填入 `config/secrets.local.env`（填完記得關檔）。
+6. 請依序執行（瀏覽器會跳出認證）：
 
 ```bash
 ./get-refresh-token.command work your-work@gmail.com
@@ -75,27 +84,47 @@ bash scripts/quickstart.sh
 
 `quickstart.sh` 會：
 - 建立 `.venv` 與安裝依賴
-- 檢查 `settings.yaml` 與 `secrets.env` 是否存在
-- 檢查 `secrets.env` 權限是否為 `600`
+- 檢查 `config/settings.local.yaml` 與 `config/secrets.local.env` 是否存在
+- 檢查 `config/secrets.local.env` 權限是否為 `600`
 - 檢查必要 env key 是否齊全
 - 執行 `dry-run`
 
 ## 6) 正式執行
 
+請使用我們提供的腳本（會自動載入 Python 環境）：
+
 ```bash
-python -m src.main \
-  --config ~/.config/daily-summarize/settings.yaml \
-  --env-file ~/.config/daily-summarize/secrets.env \
-  run
+bash scripts/run_daily_digest.sh
 ```
 
-## 7) 常用指令
+**手動執行方式**（需先啟動虛擬環境）：
 
 ```bash
-python -m src.main --config ~/.config/daily-summarize/settings.yaml --env-file ~/.config/daily-summarize/secrets.env dry-run
-python -m src.main --config ~/.config/daily-summarize/settings.yaml --env-file ~/.config/daily-summarize/secrets.env dry-run --hours 24
-python -m src.main --config ~/.config/daily-summarize/settings.yaml --env-file ~/.config/daily-summarize/secrets.env backfill --days 7
-python -m src.main --config ~/.config/daily-summarize/settings.yaml config-ui
+# 1. 啟動虛擬環境
+source .venv/bin/activate
+
+# 2. 執行主程式（設定檔已預設指向 local config）
+python -m src.main run
+```
+
+## 7) 常用指令（需先啟動虛擬環境）
+
+> 💡 Dry-run 模式僅模擬分類與移動，**不會**發送 LINE 或其他通知。
+
+```bash
+source .venv/bin/activate
+
+# 模擬執行（不移動信件、不發通知）
+python -m src.main dry-run
+
+# 模擬過去 24 小時
+python -m src.main dry-run --hours 24
+
+# 回溯過去 7 天的報表
+python -m src.main backfill --days 7
+
+# 開啟設定 UI
+python -m src.main config-ui
 ```
 
 ## 8) 本機每日排程（macOS）
@@ -147,7 +176,7 @@ bash scripts/local_schedule.sh run-now
 
 ## 10) 安全建議
 - 不要把真實 token 放進 repo。
-- `~/.config/daily-summarize/secrets.env` 權限固定 `600`。
+- `config/secrets.local.env` 權限固定 `600`。
 - 對外通知建議使用 `digest.redaction_mode: strict`。
 - 詳細流程請看 `SECURITY.md`。
 
