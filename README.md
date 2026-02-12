@@ -109,7 +109,7 @@ python -m src.main run
 
 ## 7) 常用指令（需先啟動虛擬環境）
 
-> 💡 Dry-run 模式僅模擬分類與移動，**不會**發送 LINE 或其他通知。
+> 💡 Dry-run 模式可以安全地預覽分類結果的報表通知，且**不會**實際搬移郵件。
 
 ```bash
 source .venv/bin/activate
