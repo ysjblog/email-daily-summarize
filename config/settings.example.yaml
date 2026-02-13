@@ -26,8 +26,6 @@ digest:
   - line
   gmail:
     to: your-email@example.com
-  slack:
-    channel_id: ''
   line:
     enabled: true
 accounts:

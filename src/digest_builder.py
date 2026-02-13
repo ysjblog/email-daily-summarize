@@ -107,7 +107,7 @@ def _render_markdown_account_section(
     shown = items[:max_items]
     account_icon = _account_icon(account_id)
 
-    lines = [f"### {account_icon} **{name}** (`{account_id}`) · _{len(items)} 封_"]
+    lines = [f"### {account_icon} **{name}** · _{len(items)} 封_"]
     lines.append("")
     if not shown:
         lines.append("- _📭 無_")
@@ -131,7 +131,7 @@ def _render_markdown_account_section(
 
 
 def _render_markdown_important_item(item: dict[str, Any]) -> list[str]:
-    sender = item.get("sender", "unknown sender")
+    sender = _extract_sender_name(item.get("sender", "unknown sender"))
     subject = item.get("subject", "(no subject)")
     snippet = _truncate_text(str(item.get("snippet", "")).strip(), 120)
     rendered_snippet = snippet if snippet else "(無)"
@@ -143,7 +143,7 @@ def _render_markdown_important_item(item: dict[str, Any]) -> list[str]:
 
 
 def _render_markdown_newsletter_item(item: dict[str, Any]) -> list[str]:
-    source = item.get("source", "unknown source")
+    source = _extract_sender_name(item.get("source", "unknown source"))
     subject = item.get("subject", "(no subject)")
     bullets = item.get("bullets", [])
     summary = _truncate_text(str(bullets[0]).strip(), 120) if bullets else "(無摘要)"
@@ -155,7 +155,7 @@ def _render_markdown_newsletter_item(item: dict[str, Any]) -> list[str]:
 
 
 def _render_markdown_moved_item(item: dict[str, Any]) -> list[str]:
-    sender = item.get("sender", "unknown sender")
+    sender = _extract_sender_name(item.get("sender", "unknown sender"))
     subject = item.get("subject", "(no subject)")
     reason = item.get("reason", "")
     return [
@@ -166,7 +166,7 @@ def _render_markdown_moved_item(item: dict[str, Any]) -> list[str]:
 
 
 def _render_markdown_spam_item(item: dict[str, Any]) -> list[str]:
-    sender = item.get("sender", "unknown sender")
+    sender = _extract_sender_name(item.get("sender", "unknown sender"))
     subject = item.get("subject", "(no subject)")
     score = item.get("score", 0)
     reasons = ", ".join(item.get("reasons", []))
@@ -250,7 +250,7 @@ def _render_line_account_section(
     sliced = items if max_items is None else items[:max_items]
     account_icon = _account_icon(account_id)
 
-    lines = [f"＜{account_icon} {name} ({account_id})＞ ({shown}/{len(items)})"]
+    lines = [f"＜{account_icon} {name}＞ ({shown}/{len(items)})"]
     if not items:
         lines.extend(["- 📭 無", ""])
         return lines
@@ -315,6 +315,23 @@ def _section_title_icon(key: str) -> str:
         "spam_suspects": "🚨",
     }
     return mapping.get(key, "📌")
+
+
+def _extract_sender_name(sender: str) -> str:
+    """
+    Extracts the display name from a sender string like "Name <email@example.com>".
+    If no angle brackets are present, returns the original string.
+    """
+    if "<" in sender and ">" in sender:
+        name = sender.split("<", 1)[0].strip()
+        # Remove surrounding quotes if present
+        if name.startswith('"') and name.endswith('"'):
+            name = name[1:-1].strip()
+        if name:
+            return name
+        # Fallback to email if name is empty
+        return sender.split("<", 1)[1].rstrip(">")
+    return sender
 
 
 def _truncate_text(text: str, max_chars: int) -> str:
