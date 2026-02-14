@@ -115,7 +115,6 @@
    ./get-refresh-token.command project your-project-email@gmail.com
    ```
 
-   ```
 
 4. **完成**：
    接續執行下方的「快速驗證」即可確認設定是否成功。
