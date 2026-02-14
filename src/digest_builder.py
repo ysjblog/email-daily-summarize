@@ -131,7 +131,7 @@ def _render_markdown_account_section(
 
 
 def _render_markdown_important_item(item: dict[str, Any]) -> list[str]:
-    sender = _extract_sender_name(item.get("sender", "unknown sender"))
+    sender = extract_sender_name(item.get("sender", "unknown sender"))
     subject = item.get("subject", "(no subject)")
     snippet = _truncate_text(str(item.get("snippet", "")).strip(), 120)
     rendered_snippet = snippet if snippet else "(無)"
@@ -143,7 +143,7 @@ def _render_markdown_important_item(item: dict[str, Any]) -> list[str]:
 
 
 def _render_markdown_newsletter_item(item: dict[str, Any]) -> list[str]:
-    source = _extract_sender_name(item.get("source", "unknown source"))
+    source = extract_sender_name(item.get("source", "unknown source"))
     subject = item.get("subject", "(no subject)")
     bullets = item.get("bullets", [])
     summary = _truncate_text(str(bullets[0]).strip(), 120) if bullets else "(無摘要)"
@@ -155,7 +155,7 @@ def _render_markdown_newsletter_item(item: dict[str, Any]) -> list[str]:
 
 
 def _render_markdown_moved_item(item: dict[str, Any]) -> list[str]:
-    sender = _extract_sender_name(item.get("sender", "unknown sender"))
+    sender = extract_sender_name(item.get("sender", "unknown sender"))
     subject = item.get("subject", "(no subject)")
     reason = item.get("reason", "")
     return [
@@ -166,7 +166,7 @@ def _render_markdown_moved_item(item: dict[str, Any]) -> list[str]:
 
 
 def _render_markdown_spam_item(item: dict[str, Any]) -> list[str]:
-    sender = _extract_sender_name(item.get("sender", "unknown sender"))
+    sender = extract_sender_name(item.get("sender", "unknown sender"))
     subject = item.get("subject", "(no subject)")
     score = item.get("score", 0)
     reasons = ", ".join(item.get("reasons", []))
@@ -268,14 +268,14 @@ def _render_line_account_section(
 
 def _render_newsletter_item(item: dict[str, Any]) -> list[str]:
     subject = item.get("subject", "(no subject)")
-    source = item.get("source", "unknown source")
+    source = extract_sender_name(item.get("source", "unknown source"))
     bullets = item.get("bullets", [])
     summary = _truncate_text(str(bullets[0]).strip(), NEWSLETTER_SUMMARY_MAX_CHARS) if bullets else "(無)"
     return [f"- 👤 寄件人: {source}", f"  ✉️ 主旨: {subject}", f"  📰 摘要: {summary}"]
 
 
 def _render_important_item(item: dict[str, Any]) -> list[str]:
-    sender = item.get("sender", "unknown sender")
+    sender = extract_sender_name(item.get("sender", "unknown sender"))
     subject = item.get("subject", "(no subject)")
     snippet = _truncate_text(str(item.get("snippet", "")).strip(), IMPORTANT_SNIPPET_MAX_CHARS)
     if snippet:
@@ -284,7 +284,7 @@ def _render_important_item(item: dict[str, Any]) -> list[str]:
 
 
 def _render_line_moved_item(item: dict[str, Any]) -> list[str]:
-    sender = item.get("sender", "unknown sender")
+    sender = extract_sender_name(item.get("sender", "unknown sender"))
     subject = item.get("subject", "(no subject)")
     reason = str(item.get("reason", "")).strip()
     rendered_reason = _truncate_text(reason, NEWSLETTER_SUMMARY_MAX_CHARS) if reason else "(無)"
@@ -292,7 +292,7 @@ def _render_line_moved_item(item: dict[str, Any]) -> list[str]:
 
 
 def _render_line_spam_item(item: dict[str, Any]) -> list[str]:
-    sender = item.get("sender", "unknown sender")
+    sender = extract_sender_name(item.get("sender", "unknown sender"))
     subject = item.get("subject", "(no subject)")
     score = item.get("score", 0)
     return [f"- 👤 寄件人: {sender}", f"  ⚠️ 主旨: {subject}", f"  🔴 分數: {score}"]
@@ -317,7 +317,7 @@ def _section_title_icon(key: str) -> str:
     return mapping.get(key, "📌")
 
 
-def _extract_sender_name(sender: str) -> str:
+def extract_sender_name(sender: str) -> str:
     """
     Extracts the display name from a sender string like "Name <email@example.com>".
     If no angle brackets are present, returns the original string.

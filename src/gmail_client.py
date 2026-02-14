@@ -24,6 +24,7 @@ class GmailClient:
         self.refresh_token = refresh_token
         self.timeout = timeout
         self._access_token: str | None = None
+        self._label_cache: dict[str, str] = {}
 
     @classmethod
     def from_env_prefix(cls, prefix: str, timeout: int = 30) -> "GmailClient":
@@ -119,6 +120,7 @@ class GmailClient:
             body_text=body_text,
             label_ids=raw.get("labelIds", []),
             internal_ts=ts,
+            list_unsubscribe=find_header("List-Unsubscribe"),
         )
 
     def _extract_body(self, payload: dict[str, Any]) -> str:
@@ -155,10 +157,17 @@ class GmailClient:
         return resp.json().get("labels", [])
 
     def get_or_create_label_id(self, label_name: str) -> str:
+        if label_name in self._label_cache:
+            return self._label_cache[label_name]
+
         labels = self.list_labels()
         for label in labels:
-            if label.get("name") == label_name:
-                return label.get("id")
+            name = label.get("name")
+            if name:
+                self._label_cache[name] = label.get("id")
+
+        if label_name in self._label_cache:
+            return self._label_cache[label_name]
 
         resp = self._request(
             "POST",
@@ -169,7 +178,9 @@ class GmailClient:
                 "messageListVisibility": "show",
             },
         )
-        return resp.json()["id"]
+        new_id = resp.json()["id"]
+        self._label_cache[label_name] = new_id
+        return new_id
 
     def send_email(self, to_email: str, subject: str, body: str) -> None:
         raw_message = f"To: {to_email}\r\nSubject: {subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{body}"

@@ -13,7 +13,7 @@ from src.auth.google_oauth import obtain_refresh_token, read_client_credentials,
 from src.classifier import classify_messages
 from src.config import AccountSettings, ConfigError, Settings, load_settings
 from src.config_ui_server import run_config_ui_server
-from src.digest_builder import build_combined_digest, build_external_safe_digest, build_line_digest
+from src.digest_builder import build_combined_digest, build_external_safe_digest, build_line_digest, extract_sender_name
 from src.env_utils import DEFAULT_ENV_FILE, load_env_into_os
 from src.gmail_client import GmailClient
 from src.logging_utils import build_logger
@@ -265,7 +265,6 @@ def execute_account(
     classified = classify_messages(inbox_messages, settings, high_interaction_senders=interaction_senders)
     report.important = classified.important
 
-    archive_label_id = gmail.get_or_create_label_id(settings.archive_label)
     newsletter_label_id: str | None = None
 
     moved_rows: list[dict] = []
@@ -277,13 +276,30 @@ def execute_account(
             "reason": decision.reason,
             "bucket": decision.bucket,
         }
+        # Determine target label
+        target_label_id = "INBOX" # Default / Dry-run placeholder
+        target_label_name = settings.archive_label
+        
+        if decision.bucket == "newsletter":
+            sender_name = extract_sender_name(decision.sender)
+            safe_name = _sanitize_label_name(sender_name)
+            target_label_name = f"{settings.newsletter_label}/{safe_name}"
+            
+        row["target_label"] = target_label_name
         moved_rows.append(row)
+
         if not dry_run:
-            target_label_id = archive_label_id
+            # Actually create/fetch label ID only when not dry-run (or we could simple call it if we want to pre-create)
+            # For safety, let's only create if we are really moving, OR we can allow creation query.
+            # But get_or_create_label_id actually CREATES labels. 
+            # In dry-run we probably shouldn't create labels on the server.
+            # So we just simulate the name.
+            
             if decision.bucket == "newsletter":
-                if newsletter_label_id is None:
-                    newsletter_label_id = gmail.get_or_create_label_id(settings.newsletter_label)
-                target_label_id = newsletter_label_id
+                 target_label_id = gmail.get_or_create_label_id(target_label_name)
+            else:
+                 target_label_id = gmail.get_or_create_label_id(settings.archive_label)
+
             gmail.modify_labels(
                 decision.message_id,
                 add_label_ids=[target_label_id],
@@ -448,6 +464,17 @@ def deliver_digest(
 
 def entrypoint() -> None:
     raise SystemExit(main())
+
+
+def _sanitize_label_name(name: str) -> str:
+    # Remove chars invalid for labels or too long
+    safe = name.strip()
+    # Replace slashes as they are label separators
+    safe = safe.replace("/", "-").replace("\\", "-")
+    # Truncate to reasonable length (Gmail max is high, but we keep it short for readability)
+    if len(safe) > 50:
+        safe = safe[:50]
+    return safe
 
 
 if __name__ == "__main__":

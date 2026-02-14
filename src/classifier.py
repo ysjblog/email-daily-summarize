@@ -83,6 +83,7 @@ class ScoringProfile:
     newsletter_structure_score: int = 3
     transactional_score: int = 3
     transactional_newsletter_penalty: int = 2
+    list_unsubscribe_score: int = 8
 
 
 @dataclass(slots=True)
@@ -204,12 +205,12 @@ def _score_message(
 
     if "CATEGORY_PROMOTIONS" in labels:
         state.important -= profile.promotion_penalty
-        state.newsletter += profile.promotion_newsletter_score
+        state.newsletter = -100  # Force ignore: User requested to treat promotions as low priority, not newsletters
         state.move_signals.append("gmail promotions label")
 
     if "CATEGORY_SOCIAL" in labels:
         state.important -= profile.social_penalty
-        state.newsletter += profile.social_newsletter_score
+        state.newsletter = -100 # Force ignore: User requested to treat social as low priority, not newsletters
         state.move_signals.append("gmail social label")
 
     if "no-reply" in sender_lower or "noreply" in sender_lower:
@@ -236,6 +237,11 @@ def _score_message(
         state.important -= hit_count * profile.newsletter_structure_penalty
         state.newsletter += hit_count * profile.newsletter_structure_score
         state.move_signals.append(f"newsletter structure hints x{structure_hits}")
+
+    if msg.list_unsubscribe:
+        state.important -= profile.newsletter_source_penalty
+        state.newsletter += profile.list_unsubscribe_score
+        state.move_signals.append("list-unsubscribe header found")
 
     transactional_hits = _keyword_hits(full_text, TRANSACTIONAL_HINTS)
     if transactional_hits:
@@ -303,6 +309,7 @@ def _resolve_scoring_profile(settings: Settings) -> ScoringProfile:
         newsletter_structure_score=_safe_int(raw.get("newsletter_structure_score"), 3),
         transactional_score=_safe_int(raw.get("transactional_score"), 3),
         transactional_newsletter_penalty=_safe_int(raw.get("transactional_newsletter_penalty"), 2),
+        list_unsubscribe_score=_safe_int(raw.get("list_unsubscribe_score"), 8),
     )
     return _apply_move_mode(profile, settings.move_mode)
 

@@ -16,6 +16,7 @@ class EmailMessage:
     body_text: str
     label_ids: list[str]
     internal_ts: int
+    list_unsubscribe: str | None = None
 
 
 @dataclass(slots=True)
