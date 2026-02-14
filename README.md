@@ -65,15 +65,21 @@
 - `LINE_CHANNEL_ACCESS_TOKEN`
 - `LINE_TARGET_USER_ID`
 
-常見流程（2024 後更新）：
-1.前往 **[LINE Developers Console](https://developers.line.biz/console/)**。
-2. 建立 Provider 與 **Messaging API channel**。
-3. 在 **Messaging API** 分頁中：
-   - 捲動到底部找到 `Channel access token (long-lived)`。
-   - 點選 Issue 取得一串長字串（**請注意是 Token 不是 Secret**）。
-4. 掃描 QR code 將 LINE Bot 加為好友。
-5. 取得您的 User ID（通常在 Basic settings 分頁下方，或是透過 webhook 取得）。
-6. 將這兩組資訊寫入 `config/secrets.local.env`。
+常見流程（參考官方文件：[Getting started with the Messaging API](https://developers.line.biz/en/docs/messaging-api/getting-started/)）：
+1. 前往 **[LINE Developers Console](https://developers.line.biz/console/)** 並登入 LINE 帳號。
+2. 建立一個 **Provider**（若已有可跳過）。
+3. 建立 **Messaging API channel**：
+   - 點選 "Create a new channel"。
+   - 選擇 **Messaging API**。
+   - 填寫必要資訊（App name, Description 等）。
+4. 取得 **Channel Access Token**：
+   - 進入該 Channel 的設定頁面，切換到 **Messaging API** 分頁。
+   - 捲動到底部找到 `Channel access token`。
+   - 點選 Issue 按鈕取得長效 Token（**請注意是 Token 不是 Secret**）。
+5. 取得 **User ID**：
+   - 在 **Basic settings** 分頁下方找到 `Your user ID`。
+   - 或掃描 QR code 將 Bot 加為好友。
+6. 將 Token 與 User ID 填入 `config/secrets.local.env`。
 
 
 
@@ -109,10 +115,10 @@
    ./get-refresh-token.command project your-project-email@gmail.com
    ```
 
-4. **測試**：
-   ```bash
-   python -m src.main dry-run --account project
    ```
+
+4. **完成**：
+   接續執行下方的「快速驗證」即可確認設定是否成功。
 
 ## 5) 快速驗證（Dry Run）
 
@@ -120,9 +126,7 @@
 bash scripts/quickstart.sh
 ```
 
-> **❓ 這跟 `python -m src.main dry-run` 有什麼不同？**
-> - `quickstart.sh` 會自動檢查環境（如 `.venv` 是否存在、權限檢查）並執行全部帳號的 Dry-run，適合**初次使用**或**排程腳本**。
-> - `python -m src.main dry-run --account xxx` 則適合**開發測試**或只想跑**特定帳號**時使用。
+
 
 `quickstart.sh` 會：
 - 建立 `.venv` 與安裝依賴
@@ -141,7 +145,39 @@ bash scripts/run_daily_digest.sh
 
 
 
-## 7) 進階指令（需先啟動虛擬環境）
+## 7) 本機每日排程（macOS）
+
+啟動：
+
+```bash
+bash scripts/local_schedule.sh start
+```
+
+停止：
+
+```bash
+bash scripts/local_schedule.sh stop
+```
+
+狀態：
+
+```bash
+bash scripts/local_schedule.sh status
+```
+
+立即手動跑一次：
+
+```bash
+bash scripts/local_schedule.sh run-now
+```
+
+也可直接雙擊：
+- `start-local-schedule.command`
+- `stop-local-schedule.command`
+- `status-local-schedule.command`
+- `open-config-ui.command`
+
+## 8) 進階指令（需先啟動虛擬環境）
 
 以下指令適合**除錯**或**補跑**資料時使用。
 
@@ -184,38 +220,6 @@ python -m src.main backfill --days 7
 ```bash
 python -m src.main config-ui
 ```
-
-## 8) 本機每日排程（macOS）
-
-啟動：
-
-```bash
-bash scripts/local_schedule.sh start
-```
-
-停止：
-
-```bash
-bash scripts/local_schedule.sh stop
-```
-
-狀態：
-
-```bash
-bash scripts/local_schedule.sh status
-```
-
-立即手動跑一次：
-
-```bash
-bash scripts/local_schedule.sh run-now
-```
-
-也可直接雙擊：
-- `start-local-schedule.command`
-- `stop-local-schedule.command`
-- `status-local-schedule.command`
-- `open-config-ui.command`
 
 ## 9) 安全建議
 - 不要把真實 token 放進 repo。
