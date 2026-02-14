@@ -53,6 +53,10 @@ class Settings:
     def newsletter_label(self) -> str:
         return self.labels.get("newsletter_label", "Auto/Newsletter")
 
+    @property
+    def important_label(self) -> str:
+        return self.labels.get("important_label", "Auto/Important")
+
     def enabled_accounts(self) -> list[AccountSettings]:
         return [acc for acc in self.accounts if acc.enabled]
 

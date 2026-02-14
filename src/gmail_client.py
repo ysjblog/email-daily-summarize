@@ -169,6 +169,12 @@ class GmailClient:
         if label_name in self._label_cache:
             return self._label_cache[label_name]
 
+        # Recursively ensure parent label exists
+        parts = label_name.split("/")
+        if len(parts) > 1:
+            parent = "/".join(parts[:-1])
+            self.get_or_create_label_id(parent)
+
         resp = self._request(
             "POST",
             "/labels",
@@ -180,7 +186,25 @@ class GmailClient:
         )
         new_id = resp.json()["id"]
         self._label_cache[label_name] = new_id
+        new_id = resp.json()["id"]
+        self._label_cache[label_name] = new_id
         return new_id
+
+    def patch_label(self, label_id: str, color: dict[str, str] | None = None) -> dict[str, Any]:
+        """
+        Update label properties.
+        :param label_id: The ID of the label to update
+        :param color: A dict with 'textColor' and 'backgroundColor', e.g. {"textColor": "#ffffff", "backgroundColor": "#ac2b16"}
+        """
+        payload = {}
+        if color:
+            payload["color"] = color
+        
+        if not payload:
+            return {}
+
+        resp = self._request("PATCH", f"/labels/{label_id}", json=payload)
+        return resp.json()
 
     def send_email(self, to_email: str, subject: str, body: str) -> None:
         raw_message = f"To: {to_email}\r\nSubject: {subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{body}"

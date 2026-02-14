@@ -7,6 +7,17 @@ labels:
   archive_label: Auto/LowPriority
   review_label: Auto/Review
   newsletter_label: Auto/Newsletter
+  important_label: Auto/Important
+label_colors:
+  "Auto/Important":
+    textColor: "#ffffff"
+    backgroundColor: "#fb4c2f"
+  "Auto/Newsletter":
+    textColor: "#ffffff"
+    backgroundColor: "#4a86e8"
+  "Auto/LowPriority":
+    textColor: "#ffffff"
+    backgroundColor: "#666666"
 whitelist_senders: []
 priority_keywords:
 - 付款
@@ -14,6 +25,11 @@ priority_keywords:
 - 合約
 - invoice
 - security alert
+- 貨到
+- 取貨
+- 門市
+- 取件
+- arrived
 newsletter_sources:
 - newsletter@substack.com
 spam_scan:
@@ -22,10 +38,7 @@ spam_scan:
 digest:
   redaction_mode: none
   channels:
-  - gmail
   - line
-  gmail:
-    to: your-email@example.com
   line:
     enabled: true
 accounts:
@@ -33,7 +46,6 @@ accounts:
   display_name: Work Mail
   env_prefix: WORK
   enabled: true
-  digest_to: your-email@example.com
   overrides: {}
 - id: personal
   display_name: Personal Mail

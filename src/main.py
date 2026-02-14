@@ -284,7 +284,24 @@ def execute_account(
             sender_name = extract_sender_name(decision.sender)
             safe_name = _sanitize_label_name(sender_name)
             target_label_name = f"{settings.newsletter_label}/{safe_name}"
-            
+
+            # Ensure label exists (and parent)
+            if not dry_run:
+                # Check if we should apply a color to this new label (Inheritance)
+                # We do this after creation.
+                created_id = gmail.get_or_create_label_id(target_label_name)
+                
+                # Check directly in settings.raw to avoid property indirection issues if any
+                lc = settings.raw.get("label_colors", {})
+                parent_color = lc.get(settings.newsletter_label)
+                if parent_color:
+                     # Attempt to patch the color. 
+                     # Optimally we check if it already has the color, but blindly patching is fine for now.
+                     try:
+                         gmail.patch_label(created_id, color=parent_color)
+                     except Exception:
+                         pass # Ignore color setting errors during run
+        
         row["target_label"] = target_label_name
         moved_rows.append(row)
 
@@ -307,6 +324,26 @@ def execute_account(
             )
 
     report.moved = moved_rows
+
+    # New Logic: Apply 'important_label' to emails kept in Inbox (report.important)
+    # We do NOT remove INBOX label for these.
+    if settings.important_label:
+        important_label_id = "IMPORTANT_LABEL_ID" # Placeholder
+        if not dry_run:
+            important_label_id = gmail.get_or_create_label_id(settings.important_label)
+        
+        for imp_item in report.important:
+            # report.important is a list of dicts (from classified.important)
+            # We need the message_id
+            msg_id = imp_item.get("message_id")
+            if msg_id:
+                if not dry_run:
+                    gmail.modify_labels(
+                        msg_id,
+                        add_label_ids=[important_label_id],
+                        remove_label_ids=[] # Do not remove INBOX
+                    )
+                # We could add to report/stats if needed, but for now just actioning it.
 
     spam_findings = []
     if settings.spam_scan.get("enabled", True):

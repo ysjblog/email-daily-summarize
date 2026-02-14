@@ -5,7 +5,6 @@
 ## 1) 目標使用情境
 - 自動整理多帳號 Gmail：重要信件、電子報、已搬移、疑似垃圾
 - 可在本機（macOS）用 launchd 排程
-- 可用 GitHub Actions 雲端排程
 
 ## 2) 安裝需求
 - macOS（本機排程功能）
@@ -42,45 +41,88 @@
 - `{PREFIX}_GMAIL_REFRESH_TOKEN`
 
 建議流程：
-1. 到 Google Cloud Console 建立/選擇 Project。
-2. 啟用 Gmail API。
-3. 設定 OAuth consent screen（至少完成可測試狀態）。
-4. 建立 OAuth Client（Application type 選 `Desktop app`）。
-5. 將 Client ID / Client Secret 填入 `config/secrets.local.env`（填完記得關檔）。
-6. 請依序執行（瀏覽器會跳出認證）：
+1. 前往 **[Google Cloud Console](https://console.cloud.google.com/)**。
+2. 建立新專案或選擇現有專案。
+3.搜尋並啟用 **"Gmail API"**。
+4. 設定 **OAuth consent screen**：
+   - User Type 選 `External`。
+   - 填寫 App name 與 Email（可隨意填）。
+   - **Test users** 區域：**務必加入您要讀取的 Gmail 信箱地址**。
+5. 建立 **Credentials**：
+   - 點選 `Create Credentials` -> `OAuth client ID`。
+   - Application type 選擇 **`Desktop app`**。
+   - 下載或複製 `Client ID` 與 `Client Secret`。
+6. 將這兩組字串填入 `config/secrets.local.env`（填完請儲存並關閉檔案）。
+7. 執行以下指令取得 Refresh Token（瀏覽器會跳出認證視窗，請點選「繼續」與「允許」）：
 
 ```bash
 ./get-refresh-token.command work your-work@gmail.com
 ./get-refresh-token.command personal your-personal@gmail.com
 ```
 
-### 4.2 LINE（選用）
+### 4.2 LINE（必要）
 當 `settings.yaml` 的 `digest.channels` 包含 `line` 時需要：
 - `LINE_CHANNEL_ACCESS_TOKEN`
 - `LINE_TARGET_USER_ID`
 
-常見流程：
-1. 在 LINE Developers 建立 Messaging API channel。
-2. 取得 Channel access token。
-3. 將 Bot 加為好友，從 webhook event payload 取得 userId（或以你既有方式取得）。
-4. 寫入 `secrets.env`。
+常見流程（2024 後更新）：
+1.前往 **[LINE Developers Console](https://developers.line.biz/console/)**。
+2. 建立 Provider 與 **Messaging API channel**。
+3. 在 **Messaging API** 分頁中：
+   - 捲動到底部找到 `Channel access token (long-lived)`。
+   - 點選 Issue 取得一串長字串（**請注意是 Token 不是 Secret**）。
+4. 掃描 QR code 將 LINE Bot 加為好友。
+5. 取得您的 User ID（通常在 Basic settings 分頁下方，或是透過 webhook 取得）。
+6. 將這兩組資訊寫入 `config/secrets.local.env`。
 
-### 4.3 Slack（選用）
-當 `settings.yaml` 的 `digest.channels` 包含 `slack_bot` 時需要：
-- `SLACK_BOT_TOKEN`
-- `digest.slack.channel_id`（在 `settings.yaml`）
 
-常見流程：
-1. 建立 Slack App。
-2. 設定 Bot Token scopes（至少 `chat:write`）。
-3. 安裝 App 到 workspace 取得 Bot token。
-4. 填入 `secrets.env`，並在 `settings.yaml` 放入 channel id。
+
+
+### 4.3 如何新增更多 Gmail 帳號
+若您需要管理第三個（或更多）帳號，不需修改程式碼，僅需調整設定：
+
+1. **修改 `config/settings.local.yaml`**：
+   在 `accounts` 列表下新增一組設定（注意縮排）：
+   ```yaml
+   - id: project               # 自訂新帳號 ID
+     display_name: Project Mail
+     env_prefix: PROJECT       # 對應 secrets.env 的前綴 (全大寫)
+     enabled: true
+     overrides: {}
+   ```
+
+2. **設定 `config/secrets.local.env`**：
+   新增對應的 Client ID 與 Secret。
+   > 💡 **提示**：格式請參考上方 `work` 或 `personal` 的設定範例。
+   
+    請在檔案中加入：
+    ```env
+    PROJECT_GMAIL_CLIENT_ID=您的Client_ID
+    PROJECT_GMAIL_CLIENT_SECRET=您的Client_Secret
+    PROJECT_GMAIL_REFRESH_TOKEN=
+    ```
+    *(REFRESH_TOKEN 留空，**並請務必關閉檔案**，下一步會自動填入)*
+
+3. **取得授權**：
+   執行指令：
+   ```bash
+   ./get-refresh-token.command project your-project-email@gmail.com
+   ```
+
+4. **測試**：
+   ```bash
+   python -m src.main dry-run --account project
+   ```
 
 ## 5) 快速驗證（Dry Run）
 
 ```bash
 bash scripts/quickstart.sh
 ```
+
+> **❓ 這跟 `python -m src.main dry-run` 有什麼不同？**
+> - `quickstart.sh` 會自動檢查環境（如 `.venv` 是否存在、權限檢查）並執行全部帳號的 Dry-run，適合**初次使用**或**排程腳本**。
+> - `python -m src.main dry-run --account xxx` 則適合**開發測試**或只想跑**特定帳號**時使用。
 
 `quickstart.sh` 會：
 - 建立 `.venv` 與安裝依賴
@@ -102,6 +144,14 @@ bash scripts/run_daily_digest.sh
 ## 7) 進階指令（需先啟動虛擬環境）
 
 以下指令適合**除錯**或**補跑**資料時使用。
+
+### 指令模式對照表
+
+| 模式 | 對應指令 | **會實際寄送通知嗎？** | **會實際搬移信件嗎？** | 用途 |
+| :--- | :--- | :--- | :--- | :--- |
+| **正式執行 (Run)** | `scripts/run_daily_digest.sh`<br>或 `python -m src.main run` | **✅ 會寄送** | **✅ 會搬移** | 每日自動化運作使用。 |
+| **模擬執行 (Dry-Run)** | `python -m src.main dry-run` | **✅ 會寄送** | **❌ 不會搬移** | 預覽報表格式、測試分類邏輯。 |
+| **歷史回溯 (Backfill)** | `python -m src.main backfill` | **❌ 預設不寄送**<br>*(除非加 `--notify`)* | **❌ 不會搬移** | 補跑過去數據分析，不產生通知與搬移。 |
 
 > 💡 Dry-run 模式可以安全地預覽分類結果的報表通知，且**不會**實際搬移郵件。
 
