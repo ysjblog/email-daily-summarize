@@ -60,6 +60,12 @@
 ./get-refresh-token.command personal your-personal@gmail.com
 ```
 
+> 💡 **重要提醒：防止授權 Token 每 7 天過期**
+> 如果您的 Google Cloud 專案處於「測試 (Testing)」模式，Token 會在 7 天後失效導致排程中斷。
+> 1. 返回 **[OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent)** 頁面。
+> 2. 點擊 **「發布應用程式 (Publish Application)」** 並確認。
+> 3. **不需要**提交驗證（Submit for verification），直接發布即可避免 7 天過期限制。
+
 ### 4.2 LINE（必要）
 當 `settings.yaml` 的 `digest.channels` 包含 `line` 時需要：
 - `LINE_CHANNEL_ACCESS_TOKEN`
