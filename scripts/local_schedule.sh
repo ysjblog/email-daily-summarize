@@ -163,7 +163,7 @@ stop_schedule() {
 status_schedule() {
   require_macos
   read_run_times
-  if launchctl list | grep -Fq "${LABEL}"; then
+  if launchctl list "${LABEL}" >/dev/null 2>&1; then
     echo "[OK] Local schedule is running."
   else
     echo "[INFO] Local schedule is not running."

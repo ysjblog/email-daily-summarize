@@ -64,7 +64,6 @@ def build_line_digest(run_id: str, account_reports: list[dict[str, Any]], failed
         section_defs = [
             ("重要信件", "important", _render_important_item, None),
             ("電子報摘要", "newsletters", _render_newsletter_item, LINE_SECTION_LIMIT),
-            ("已搬移摘要", "moved", _render_line_moved_item, LINE_SECTION_LIMIT),
             ("疑似垃圾但重要", "spam_suspects", _render_line_spam_item, LINE_SECTION_LIMIT),
         ]
 
@@ -190,7 +189,6 @@ def build_external_safe_digest(
         section_defs = [
             ("重要信件", "important"),
             ("電子報摘要", "newsletters"),
-            ("已搬移信件", "moved"),
             ("疑似垃圾但重要", "spam_suspects"),
         ]
 
