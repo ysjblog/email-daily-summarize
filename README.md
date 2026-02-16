@@ -60,6 +60,12 @@
 ./get-refresh-token.command personal your-personal@gmail.com
 ```
 
+> 💡 **重要提醒：防止授權 Token 每 7 天過期**
+> 如果您的 Google Cloud 專案處於「測試 (Testing)」模式，Token 會在 7 天後失效導致排程中斷。
+> 1. 返回 **[OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent)** 頁面。
+> 2. 點擊 **「發布應用程式 (Publish Application)」** 並確認。
+> 3. **不需要**提交驗證（Submit for verification），直接發布即可避免 7 天過期限制。
+
 ### 4.2 LINE（必要）
 當 `settings.yaml` 的 `digest.channels` 包含 `line` 時需要：
 - `LINE_CHANNEL_ACCESS_TOKEN`
@@ -118,6 +124,27 @@
 
 4. **完成**：
    接續執行下方的「快速驗證」即可確認設定是否成功。
+
+### 4.4 如何調整通知時間
+您可以根據需求隨時更改每日摘要通知的時間：
+
+1. **修改設定檔**：
+   開啟 `config/settings.local.yaml`，找到 `run_times` 區塊並修改時間：
+   ```yaml
+   run_times:
+     - '08:30'
+     - '20:00'
+   ```
+   *（請使用 24 小時制格式，例如 `09:00` 或 `21:15`）*
+
+2. **套用變更**：
+   修改完儲存後，您必須重新啟動排程以套用新時間。您可以雙擊執行 `start-local-schedule.command` 或在終端機執行：
+   ```bash
+   bash scripts/local_schedule.sh start
+   ```
+
+3. **驗證**：
+   執行 `bash scripts/local_schedule.sh status` 確認輸出資訊中的 `Times` 是否正確顯示新設定。
 
 ## 5) 快速驗證（Dry Run）
 
