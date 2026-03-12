@@ -3,8 +3,12 @@ set -euo pipefail
 
 LABEL="com.daily-summarize.digest"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PLIST_PATH="${HOME}/Library/LaunchAgents/${LABEL}.plist"
+# macOS launchd strict paths (bypass bad ownership block on external storage)
+PLIST_PATH="${REPO_ROOT}/${LABEL}.plist"
 RUN_SCRIPT="${REPO_ROOT}/scripts/run_daily_digest.sh"
+LAUNCHD_RUNNER_DIR="${REPO_ROOT}/logs/launchd_runner"
+LAUNCHD_RUNNER_PATH="${LAUNCHD_RUNNER_DIR}/run_daily_digest.sh"
+LAUNCHD_LOG_DIR="${REPO_ROOT}/logs"
 CONFIG_FILE="${DAILY_SUMMARIZE_CONFIG:-${REPO_ROOT}/config/settings.local.yaml}"
 SECRETS_FILE="${DAILY_SUMMARIZE_ENV_FILE:-${REPO_ROOT}/config/secrets.local.env}"
 
@@ -12,7 +16,7 @@ RUN_TIMES=()
 
 read_run_times() {
   local output
-  output="$(DAILY_SUMMARIZE_CONFIG="${CONFIG_FILE}" python3 - <<'PY'
+  output="$(DAILY_SUMMARIZE_CONFIG="${CONFIG_FILE}" "${REPO_ROOT}/.venv/bin/python" - <<'PY'
 import os
 import re
 
@@ -98,9 +102,23 @@ check_prerequisites() {
   fi
 }
 
+write_runner_script() {
+  mkdir -p "${LAUNCHD_RUNNER_DIR}"
+  cat > "${LAUNCHD_RUNNER_PATH}" <<EOF_RUNNER
+#!/usr/bin/env bash
+set -euo pipefail
+export DAILY_SUMMARIZE_CONFIG="${CONFIG_FILE}"
+export DAILY_SUMMARIZE_ENV_FILE="${SECRETS_FILE}"
+cd "${REPO_ROOT}"
+exec /bin/bash "${RUN_SCRIPT}"
+EOF_RUNNER
+  chmod 755 "${LAUNCHD_RUNNER_PATH}"
+}
+
 write_plist() {
-  mkdir -p "${HOME}/Library/LaunchAgents" "${REPO_ROOT}/logs"
+  mkdir -p "${REPO_ROOT}/logs" "${LAUNCHD_LOG_DIR}"
   read_run_times
+  write_runner_script
 
   cat > "${PLIST_PATH}" <<EOF_PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -112,10 +130,10 @@ write_plist() {
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>${RUN_SCRIPT}</string>
+    <string>${LAUNCHD_RUNNER_PATH}</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>${REPO_ROOT}</string>
+  <string>${LAUNCHD_RUNNER_DIR}</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>TZ</key>
@@ -132,9 +150,9 @@ write_plist() {
 $(build_schedule_xml)
   </array>
   <key>StandardOutPath</key>
-  <string>${REPO_ROOT}/logs/launchd.out.log</string>
+  <string>${LAUNCHD_LOG_DIR}/launchd.out.log</string>
   <key>StandardErrorPath</key>
-  <string>${REPO_ROOT}/logs/launchd.err.log</string>
+  <string>${LAUNCHD_LOG_DIR}/launchd.err.log</string>
 </dict>
 </plist>
 EOF_PLIST

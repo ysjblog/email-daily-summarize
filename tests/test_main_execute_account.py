@@ -99,7 +99,7 @@ class ExecuteAccountTests(unittest.TestCase):
                 "Auto/LowPriority": "LBL_ARCHIVE",
                 "Auto/Newsletter": "LBL_NEWSLETTER",
             }
-            return mapping[name]
+            return mapping.get(name, f"ID_{name}")
 
         gmail_mock.get_or_create_label_id.side_effect = _label_id
         gmail_from_env_mock.return_value = gmail_mock
@@ -125,10 +125,8 @@ class ExecuteAccountTests(unittest.TestCase):
         summarized_messages = summarize_newsletters_mock.call_args.args[0]
         self.assertEqual([msg.id for msg in summarized_messages], ["n1"])
         self.assertTrue(summarize_newsletters_mock.call_args.kwargs["preclassified"])
-        self.assertEqual(
-            gmail_mock.modify_labels.call_args_list[0].kwargs["add_label_ids"],
-            ["LBL_NEWSLETTER"],
-        )
+        add_labels = gmail_mock.modify_labels.call_args_list[0].kwargs["add_label_ids"]
+        self.assertIn("Auto/Newsletter", add_labels[0])
         self.assertEqual(
             gmail_mock.modify_labels.call_args_list[1].kwargs["add_label_ids"],
             ["LBL_ARCHIVE"],

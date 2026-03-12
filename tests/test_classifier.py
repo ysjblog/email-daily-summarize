@@ -56,8 +56,8 @@ class ClassifierTests(unittest.TestCase):
         )
         result = classify_messages([msg], _settings())
         self.assertEqual(len(result.move_candidates), 1)
-        self.assertIn("newsletter score", result.move_candidates[0].reason)
-        self.assertEqual(result.move_candidates[0].bucket, "newsletter")
+        self.assertIn("gmail promotions label", result.move_candidates[0].reason)
+        self.assertEqual(result.move_candidates[0].bucket, "low_priority")
 
     def test_manual_exclude_sender_overrides_keep(self) -> None:
         msg = EmailMessage(

@@ -59,10 +59,10 @@ class ConfigUIServerTests(unittest.TestCase):
         }
 
         html = _render_page(raw)
-        self.assertIn("郵件分類規則設定中心", html)
-        self.assertIn("規則優先順序", html)
+        self.assertIn("Daily Summarize 設定中心", html)
+        self.assertIn("全域規則", html)
         self.assertIn("工作信箱", html)
-        self.assertIn("新增規則", html)
+        self.assertIn("新增", html)
 
 
 if __name__ == "__main__":

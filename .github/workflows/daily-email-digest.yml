@@ -1,8 +1,6 @@
 name: daily-email-digest
 
 on:
-  schedule:
-    - cron: "0 1,13 * * *" # 09:00 and 21:00 Asia/Taipei (UTC+8)
   workflow_dispatch:
 
 jobs:
