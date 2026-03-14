@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import base64
+import logging
 import os
+import time
 from datetime import datetime
 from typing import Any
 
 import requests
+from requests.exceptions import ConnectionError, ReadTimeout, Timeout
 
 from src.models import EmailMessage
+
+_logger = logging.getLogger(__name__)
 
 
 class GmailAuthError(RuntimeError):
@@ -18,16 +23,17 @@ class GmailClient:
     BASE_URL = "https://gmail.googleapis.com/gmail/v1/users/me"
     TOKEN_URL = "https://oauth2.googleapis.com/token"
 
-    def __init__(self, client_id: str, client_secret: str, refresh_token: str, timeout: int = 30):
+    def __init__(self, client_id: str, client_secret: str, refresh_token: str, timeout: int = 60, max_retries: int = 3):
         self.client_id = client_id
         self.client_secret = client_secret
         self.refresh_token = refresh_token
         self.timeout = timeout
+        self.max_retries = max_retries
         self._access_token: str | None = None
         self._label_cache: dict[str, str] = {}
 
     @classmethod
-    def from_env_prefix(cls, prefix: str, timeout: int = 30) -> "GmailClient":
+    def from_env_prefix(cls, prefix: str, timeout: int = 60, max_retries: int = 3) -> "GmailClient":
         normalized = prefix.upper()
         client_id = os.getenv(f"{normalized}_GMAIL_CLIENT_ID")
         client_secret = os.getenv(f"{normalized}_GMAIL_CLIENT_SECRET")
@@ -40,7 +46,7 @@ class GmailClient:
                 f"{normalized}_GMAIL_CLIENT_SECRET, {normalized}_GMAIL_REFRESH_TOKEN"
             )
 
-        return cls(client_id=client_id, client_secret=client_secret, refresh_token=refresh_token, timeout=timeout)
+        return cls(client_id=client_id, client_secret=client_secret, refresh_token=refresh_token, timeout=timeout, max_retries=max_retries)
 
     def _refresh_access_token(self) -> str:
         resp = requests.post(
@@ -66,12 +72,39 @@ class GmailClient:
 
     def _request(self, method: str, path: str, **kwargs: Any) -> requests.Response:
         url = f"{self.BASE_URL}{path}"
-        resp = requests.request(method, url, headers=self._headers(), timeout=self.timeout, **kwargs)
-        if resp.status_code == 401:
-            self._refresh_access_token()
-            resp = requests.request(method, url, headers=self._headers(), timeout=self.timeout, **kwargs)
-        resp.raise_for_status()
-        return resp
+        last_exc: Exception | None = None
+
+        for attempt in range(self.max_retries):
+            try:
+                resp = requests.request(method, url, headers=self._headers(), timeout=self.timeout, **kwargs)
+                if resp.status_code == 401:
+                    self._refresh_access_token()
+                    resp = requests.request(method, url, headers=self._headers(), timeout=self.timeout, **kwargs)
+                # Retry on server-side errors (5xx)
+                if resp.status_code >= 500:
+                    wait = 2 ** attempt
+                    _logger.warning(
+                        "[GmailClient] %s %s -> HTTP %s, retry %d/%d in %ds",
+                        method, path, resp.status_code, attempt + 1, self.max_retries, wait,
+                    )
+                    time.sleep(wait)
+                    continue
+                resp.raise_for_status()
+                return resp
+            except (Timeout, ReadTimeout, ConnectionError) as exc:
+                last_exc = exc
+                wait = 2 ** attempt
+                _logger.warning(
+                    "[GmailClient] %s %s -> %s, retry %d/%d in %ds",
+                    method, path, type(exc).__name__, attempt + 1, self.max_retries, wait,
+                )
+                if attempt < self.max_retries - 1:
+                    time.sleep(wait)
+
+        # All retries exhausted
+        if last_exc is not None:
+            raise last_exc  # type: ignore[misc]
+        raise RuntimeError(f"[GmailClient] All {self.max_retries} retries failed for {method} {path}")
 
     def list_messages(self, query: str, label_ids: list[str] | None = None, max_results: int = 200) -> list[dict[str, str]]:
         messages: list[dict[str, str]] = []

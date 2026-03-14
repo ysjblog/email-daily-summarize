@@ -10,3 +10,5 @@ data/reports/*.json
 data/reports/*.md
 data/state/*.json
 logs/*.log
+tests/
+lessons.md

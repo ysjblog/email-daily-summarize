@@ -4,10 +4,10 @@
 
 ## 1) 目標使用情境
 - 自動整理多帳號 Gmail：重要信件、電子報、已搬移、疑似垃圾
-- 可在本機（macOS）用 launchd 排程
+- 可在本機（macOS）用 launchd 或 cron 排程（自動適應環境）
 
 ## 2) 安裝需求
-- macOS（本機排程功能）
+- macOS（本機排程功能，支援 launchd 或 cron）
 - Python 3.11+
 - Google OAuth 憑證（每個帳號一組 Refresh Token）
 
@@ -161,19 +161,19 @@ bash scripts/quickstart.sh
 - 檢查必要 env key 是否齊全
 - 執行 `dry-run`
 
-## 6) 正式執行
-
-請使用我們提供的腳本（會自動載入 Python 環境）：
-
 ```bash
 bash scripts/run_daily_digest.sh
 ```
+
+> **🛡️ 穩定性增強：**
+> - **API 重試機制**：Gmail Client 現在具備 60s timeout 與 3 次自動重試 (Exponential Backoff)，大幅降低網路抖動導致的失敗率。
+> - **併發保護**：腳本內建 `flock` 檔案鎖與時間窗口檢查，防止同一時段重複觸發。
 
 
 
 ## 7) 本機每日排程（macOS）
 
-啟動：
+啟動（會自動根據系統環境選擇 launchd 或 cron）：
 
 ```bash
 bash scripts/local_schedule.sh start
@@ -256,4 +256,4 @@ python -m src.main config-ui
 ## 10) 輸出位置
 - 報表：`data/reports/*.json`, `data/reports/*.md`
 - 狀態：`data/state/*.json`
-- 日誌：`logs/*.log`
+- 日誌：`logs/*.log`, `~/Library/Logs/DailySummarize/` (cron 模式)
